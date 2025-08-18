@@ -1,0 +1,414 @@
+import React, { useState } from 'react';
+import { Plus, Search, Package, TrendingDown, Calendar, Wrench, Eye, Edit } from 'lucide-react';
+import Card from '../components/UI/Card';
+import Button from '../components/UI/Button';
+
+const mockAssets = [
+  {
+    id: 1,
+    assetNumber: 'AST-001',
+    name: 'Dell Laptop - Engineering',
+    category: 'Computer Equipment',
+    purchaseDate: '2023-01-15',
+    purchasePrice: 1200.00,
+    currentValue: 800.00,
+    depreciationMethod: 'straight_line',
+    usefulLife: 3,
+    salvageValue: 100.00,
+    location: 'Engineering Office',
+    condition: 'good',
+    status: 'active',
+    serialNumber: 'DL123456789',
+    warrantyExpiry: '2026-01-15',
+    lastMaintenance: '2024-12-01',
+    nextMaintenance: '2025-06-01'
+  },
+  {
+    id: 2,
+    assetNumber: 'AST-002',
+    name: 'Office Printer - HP LaserJet',
+    category: 'Office Equipment',
+    purchaseDate: '2022-08-20',
+    purchasePrice: 800.00,
+    currentValue: 400.00,
+    depreciationMethod: 'straight_line',
+    usefulLife: 5,
+    salvageValue: 50.00,
+    location: 'Main Office',
+    condition: 'excellent',
+    status: 'active',
+    serialNumber: 'HP987654321',
+    warrantyExpiry: '2025-08-20',
+    lastMaintenance: '2024-11-15',
+    nextMaintenance: '2025-05-15'
+  },
+  {
+    id: 3,
+    assetNumber: 'AST-003',
+    name: 'Company Vehicle - Toyota Camry',
+    category: 'Vehicles',
+    purchaseDate: '2021-03-10',
+    purchasePrice: 25000.00,
+    currentValue: 15000.00,
+    depreciationMethod: 'declining_balance',
+    usefulLife: 8,
+    salvageValue: 2000.00,
+    location: 'Parking Lot A',
+    condition: 'good',
+    status: 'active',
+    serialNumber: 'TC2021001',
+    warrantyExpiry: '2024-03-10',
+    lastMaintenance: '2024-12-20',
+    nextMaintenance: '2025-03-20'
+  },
+  {
+    id: 4,
+    assetNumber: 'AST-004',
+    name: 'Manufacturing Equipment - CNC Machine',
+    category: 'Manufacturing Equipment',
+    purchaseDate: '2020-06-01',
+    purchasePrice: 50000.00,
+    currentValue: 30000.00,
+    depreciationMethod: 'units_of_production',
+    usefulLife: 10,
+    salvageValue: 5000.00,
+    location: 'Factory Floor B',
+    condition: 'fair',
+    status: 'active',
+    serialNumber: 'CNC2020001',
+    warrantyExpiry: '2023-06-01',
+    lastMaintenance: '2025-01-10',
+    nextMaintenance: '2025-04-10'
+  }
+];
+
+const maintenanceRecords = [
+  { id: 1, assetName: 'Dell Laptop - Engineering', date: '2024-12-01', type: 'Preventive', cost: 150.00, description: 'Software updates and cleaning', status: 'completed' },
+  { id: 2, assetName: 'Office Printer - HP LaserJet', date: '2024-11-15', type: 'Repair', cost: 85.00, description: 'Replace toner cartridge', status: 'completed' },
+  { id: 3, assetName: 'Company Vehicle - Toyota Camry', date: '2024-12-20', type: 'Preventive', cost: 320.00, description: 'Oil change and tire rotation', status: 'completed' },
+  { id: 4, assetName: 'Manufacturing Equipment - CNC Machine', date: '2025-01-10', type: 'Preventive', cost: 1200.00, description: 'Calibration and parts replacement', status: 'completed' }
+];
+
+export default function FixedAssets() {
+  const [activeTab, setActiveTab] = useState('assets');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const filteredAssets = mockAssets.filter(asset => {
+    const matchesSearch = asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         asset.assetNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         asset.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || asset.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const getConditionColor = (condition: string) => {
+    switch (condition) {
+      case 'excellent': return 'bg-green-100 text-green-800';
+      case 'good': return 'bg-blue-100 text-blue-800';
+      case 'fair': return 'bg-yellow-100 text-yellow-800';
+      case 'poor': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-600';
+    }
+  };
+
+  const totalAssets = filteredAssets.length;
+  const totalValue = filteredAssets.reduce((sum, asset) => sum + asset.currentValue, 0);
+  const totalDepreciation = filteredAssets.reduce((sum, asset) => sum + (asset.purchasePrice - asset.currentValue), 0);
+  const maintenanceDue = filteredAssets.filter(asset => new Date(asset.nextMaintenance) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length;
+
+  return (
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Fixed Assets</h1>
+          <p className="text-gray-600">Manage asset register, depreciation, and maintenance</p>
+        </div>
+        <div className="flex space-x-3">
+          <Button variant="secondary">
+            <TrendingDown className="w-4 h-4 mr-2" />
+            Depreciation Report
+          </Button>
+          <Button>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Asset
+          </Button>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Assets</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{totalAssets}</p>
+            </div>
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <Package className="w-6 h-6 text-blue-600" />
+            </div>
+          </div>
+        </Card>
+        <Card>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Current Value</p>
+              <p className="text-2xl font-bold text-green-600 mt-1">${totalValue.toLocaleString()}</p>
+            </div>
+            <div className="p-3 bg-green-100 rounded-lg">
+              <TrendingDown className="w-6 h-6 text-green-600 transform rotate-180" />
+            </div>
+          </div>
+        </Card>
+        <Card>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Depreciation</p>
+              <p className="text-2xl font-bold text-orange-600 mt-1">${totalDepreciation.toLocaleString()}</p>
+            </div>
+            <div className="p-3 bg-orange-100 rounded-lg">
+              <TrendingDown className="w-6 h-6 text-orange-600" />
+            </div>
+          </div>
+        </Card>
+        <Card>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Maintenance Due</p>
+              <p className="text-2xl font-bold text-red-600 mt-1">{maintenanceDue}</p>
+            </div>
+            <div className="p-3 bg-red-100 rounded-lg">
+              <Wrench className="w-6 h-6 text-red-600" />
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('assets')}
+            className={`whitespace-nowrap pb-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'assets'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Asset Register
+          </button>
+          <button
+            onClick={() => setActiveTab('maintenance')}
+            className={`whitespace-nowrap pb-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'maintenance'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Maintenance
+          </button>
+          <button
+            onClick={() => setActiveTab('depreciation')}
+            className={`whitespace-nowrap pb-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'depreciation'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Depreciation
+          </button>
+        </nav>
+      </div>
+
+      {/* Assets Tab */}
+      {activeTab === 'assets' && (
+        <div className="space-y-6">
+          {/* Search and Filters */}
+          <Card>
+            <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search assets..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div className="flex items-center space-x-4">
+                <select 
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="disposed">Disposed</option>
+                  <option value="sold">Sold</option>
+                  <option value="retired">Retired</option>
+                </select>
+              </div>
+            </div>
+          </Card>
+
+          {/* Assets Table */}
+          <Card padding={false}>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Asset
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Category
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Location
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Purchase Price
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Current Value
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Condition
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredAssets.map((asset) => (
+                    <tr key={asset.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="font-medium text-gray-900">{asset.name}</p>
+                          <p className="text-sm text-gray-500">{asset.assetNumber}</p>
+                          <p className="text-sm text-gray-500">S/N: {asset.serialNumber}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm text-gray-900">{asset.category}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm text-gray-900">{asset.location}</p>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <p className="text-sm text-gray-900">${asset.purchasePrice.toLocaleString()}</p>
+                        <p className="text-xs text-gray-500">{asset.purchaseDate}</p>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <p className="font-semibold text-green-600">${asset.currentValue.toLocaleString()}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getConditionColor(asset.condition)}`}>
+                          {asset.condition}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center space-x-2">
+                          <button className="p-1 text-gray-500 hover:text-blue-600">
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button className="p-1 text-gray-500 hover:text-blue-600">
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Maintenance Tab */}
+      {activeTab === 'maintenance' && (
+        <Card>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-gray-900">Maintenance Records</h2>
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              Schedule Maintenance
+            </Button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Asset
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Cost
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {maintenanceRecords.map((record) => (
+                  <tr key={record.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-4">
+                      <p className="text-sm font-medium text-gray-900">{record.assetName}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <p className="text-sm text-gray-900">{record.date}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
+                        record.type === 'Preventive' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
+                      }`}>
+                        {record.type}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <p className="text-sm text-gray-900">{record.description}</p>
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <p className="text-sm font-medium text-gray-900">${record.cost.toFixed(2)}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                        {record.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Depreciation Tab */}
+      {activeTab === 'depreciation' && (
+        <Card>
+          <div className="text-center py-12">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Depreciation Schedules</h3>
+            <p className="text-gray-600 mb-4">View and manage asset depreciation calculations</p>
+            <Button>Generate Depreciation Report</Button>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
