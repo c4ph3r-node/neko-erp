@@ -17,7 +17,12 @@ import {
   Wrench,
   Cog,
   ShoppingCart,
-  Zap
+  Zap,
+  Calculator,
+  DollarSign,
+  TrendingUp,
+  Shield,
+  Target
 } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 
@@ -31,18 +36,23 @@ const navigation = [
   { name: 'Customers', href: '/customers', icon: Users },
   { name: 'Vendors', href: '/vendors', icon: Building },
   { name: 'Invoices', href: '/invoices', icon: FileText },
+  { name: 'Estimates', href: '/estimates', icon: FileText },
   { name: 'Purchase Orders', href: '/purchase-orders', icon: ShoppingCart },
   { name: 'Inventory', href: '/inventory', icon: Package },
   { name: 'Banking', href: '/banking', icon: CreditCard },
+  { name: 'Cash Flow', href: '/cash-flow', icon: TrendingUp },
+  { name: 'Budgeting', href: '/budgeting', icon: Target },
   { name: 'Projects', href: '/projects', icon: FolderOpen },
   { name: 'Sales Orders', href: '/sales-orders', icon: ShoppingCart },
   { name: 'Manufacturing', href: '/manufacturing', icon: Cog },
   { name: 'Payroll & HR', href: '/payroll', icon: UserCheck },
   { name: 'Fixed Assets', href: '/fixed-assets', icon: Wrench },
   { name: 'Accounting', href: '/accounting', icon: BookOpen },
+  { name: 'Tax & Compliance', href: '/tax-compliance', icon: Calculator },
   { name: 'Reports', href: '/reports', icon: BarChart3 },
   { name: 'Documents', href: '/documents', icon: FileText },
   { name: 'Workflows', href: '/workflows', icon: Zap },
+  { name: 'User Management', href: '/user-management', icon: Shield },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 

@@ -20,6 +20,11 @@ import SalesOrders from './pages/SalesOrders';
 import PurchaseOrders from './pages/PurchaseOrders';
 import DocumentManagement from './pages/DocumentManagement';
 import WorkflowAutomation from './pages/WorkflowAutomation';
+import TaxCompliance from './pages/TaxCompliance';
+import Estimates from './pages/Estimates';
+import Budgeting from './pages/Budgeting';
+import CashFlow from './pages/CashFlow';
+import UserManagement from './pages/UserManagement';
 import Layout from './components/Layout/Layout';
 import LoadingSpinner from './components/UI/LoadingSpinner';
 
@@ -155,6 +160,41 @@ function AppRoutes() {
         <ProtectedRoute>
           <Layout>
             <WorkflowAutomation />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/tax-compliance" element={
+        <ProtectedRoute>
+          <Layout>
+            <TaxCompliance />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/estimates" element={
+        <ProtectedRoute>
+          <Layout>
+            <Estimates />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/budgeting" element={
+        <ProtectedRoute>
+          <Layout>
+            <Budgeting />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/cash-flow" element={
+        <ProtectedRoute>
+          <Layout>
+            <CashFlow />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/user-management" element={
+        <ProtectedRoute>
+          <Layout>
+            <UserManagement />
           </Layout>
         </ProtectedRoute>
       } />
