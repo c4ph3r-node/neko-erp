@@ -393,7 +393,7 @@ export default function FixedAssets() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
-                          <button className="p-1 text-gray-500 hover:text-blue-600">
+                          <button className="p-1 text-gray-500 hover:text-blue-600"
                             onClick={() => handleViewAsset(asset.id)}
                             title="View Asset"
                           >
