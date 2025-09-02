@@ -12,11 +12,18 @@ export interface Tenant {
     language: string;
     timezone: string;
     fiscalYearStart: string;
+    industry: string;
+    phone: string;
+    email: string;
+    website: string;
+    taxNumber: string;
+    address: string;
   };
 }
 
 interface TenantContextType {
   tenant: Tenant | null;
+  updateTenant: (updates: Partial<Tenant>) => void;
   loading: boolean;
 }
 
@@ -35,6 +42,12 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
+  const updateTenant = (updates: Partial<Tenant>) => {
+    setTenant(prev => prev ? { ...prev, ...updates } : null);
+    // In a real app, this would make an API call to update the tenant
+    console.log('Updating tenant:', updates);
+  };
+
   useEffect(() => {
     if (user) {
       // Mock tenant data - in real app, this would be fetched from API
@@ -47,7 +60,13 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
           dateFormat: 'MM/dd/yyyy',
           language: 'en',
           timezone: 'America/New_York',
-          fiscalYearStart: '01/01'
+          fiscalYearStart: '01/01',
+          industry: 'Technology',
+          phone: '+1 (555) 123-4567',
+          email: 'contact@acme.com',
+          website: 'https://acme.com',
+          taxNumber: 'TAX123456789',
+          address: '123 Business Street, City, State 12345'
         }
       };
       
@@ -59,7 +78,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   return (
-    <TenantContext.Provider value={{ tenant, loading }}>
+    <TenantContext.Provider value={{ tenant, updateTenant, loading }}>
       {children}
     </TenantContext.Provider>
   );

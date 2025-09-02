@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, Users, DollarSign, Calendar, FileText, Download, Eye, Edit, Clock, CheckCircle, AlertTriangle, UserPlus, Calculator, Printer } from 'lucide-react';
+import { Plus, Search, Users, DollarSign, Calendar, FileText, Download, Eye, Edit, Clock, CheckCircle, AlertTriangle, UserPlus, Calculator, Printer, Trash2, X, Upload } from 'lucide-react';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
@@ -181,6 +181,20 @@ export default function Payroll() {
     }
   };
 
+  const handleSuspendEmployee = (employeeId: number) => {
+    setEmployees(prev => prev.map(emp => 
+      emp.id === employeeId ? { ...emp, status: emp.status === 'suspended' ? 'active' : 'suspended' } : emp
+    ));
+  };
+
+  const handleTerminateEmployee = (employeeId: number) => {
+    if (confirm('Are you sure you want to terminate this employee?')) {
+      setEmployees(prev => prev.map(emp => 
+        emp.id === employeeId ? { ...emp, status: 'terminated' } : emp
+      ));
+    }
+  };
+
   // Payroll CRUD Operations
   const handleCreatePayrollRun = () => {
     setEditingPayroll(null);
@@ -210,6 +224,25 @@ export default function Payroll() {
     ));
   };
 
+  const handleDeletePayrollRun = (payrollId: number) => {
+    const payrollRun = payrollRuns.find(run => run.id === payrollId);
+    if (payrollRun?.status === 'paid') {
+      alert('Cannot delete a paid payroll run');
+      return;
+    }
+    if (confirm('Are you sure you want to delete this payroll run?')) {
+      setPayrollRuns(prev => prev.filter(run => run.id !== payrollId));
+    }
+  };
+
+  const handleViewPayrollRun = (payrollId: number) => {
+    const payrollRun = payrollRuns.find(run => run.id === payrollId);
+    if (payrollRun) {
+      setEditingPayroll(payrollRun);
+      setShowPayrollModal(true);
+    }
+  };
+
   // Timesheet Operations
   const handleAddTimeEntry = () => {
     setShowTimesheetModal(true);
@@ -225,6 +258,26 @@ export default function Payroll() {
     setTimeEntries(prev => prev.map(entry => 
       entry.id === entryId ? { ...entry, approved: true } : entry
     ));
+  };
+
+  const handleRejectTimeEntry = (entryId: number) => {
+    setTimeEntries(prev => prev.map(entry => 
+      entry.id === entryId ? { ...entry, approved: false } : entry
+    ));
+  };
+
+  const handleDeleteTimeEntry = (entryId: number) => {
+    if (confirm('Are you sure you want to delete this time entry?')) {
+      setTimeEntries(prev => prev.filter(entry => entry.id !== entryId));
+    }
+  };
+
+  const handleEditTimeEntry = (entryId: number) => {
+    const timeEntry = timeEntries.find(entry => entry.id === entryId);
+    if (timeEntry) {
+      console.log('Editing time entry:', timeEntry);
+      // Implementation for editing time entry
+    }
   };
 
   // Leave Management Operations
@@ -250,6 +303,20 @@ export default function Payroll() {
     ));
   };
 
+  const handleDeleteLeaveRequest = (leaveId: number) => {
+    if (confirm('Are you sure you want to delete this leave request?')) {
+      setLeaveRequests(prev => prev.filter(leave => leave.id !== leaveId));
+    }
+  };
+
+  const handleViewLeaveRequest = (leaveId: number) => {
+    const leaveRequest = leaveRequests.find(leave => leave.id === leaveId);
+    if (leaveRequest) {
+      console.log('Viewing leave request:', leaveRequest);
+      // Implementation for viewing leave request details
+    }
+  };
+
   const handleGeneratePayslips = (payrollId: number) => {
     console.log('Generating payslips for payroll run:', payrollId);
     // Implementation for payslip generation
@@ -258,6 +325,23 @@ export default function Payroll() {
   const handleExportPayroll = (payrollId: number) => {
     console.log('Exporting payroll data:', payrollId);
     // Implementation for payroll export
+  };
+
+  const handleBulkImportEmployees = () => {
+    console.log('Opening bulk import for employees');
+    // Implementation for bulk employee import
+  };
+
+  const handleBulkApproveTimesheets = () => {
+    const pendingEntries = timeEntries.filter(entry => !entry.approved);
+    if (pendingEntries.length === 0) {
+      alert('No pending timesheets to approve');
+      return;
+    }
+    if (confirm(`Are you sure you want to approve ${pendingEntries.length} pending timesheets?`)) {
+      setTimeEntries(prev => prev.map(entry => ({ ...entry, approved: true })));
+      alert('All pending timesheets approved successfully');
+    }
   };
 
   return (
@@ -477,8 +561,16 @@ export default function Payroll() {
                           <button 
                             onClick={() => handleDeleteEmployee(employee.id)}
                             className="p-1 text-gray-500 hover:text-red-600"
+                            title="Delete Employee"
                           >
                             <Trash2 className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleSuspendEmployee(employee.id)}
+                            className="p-1 text-gray-500 hover:text-yellow-600"
+                            title={employee.status === 'suspended' ? 'Activate Employee' : 'Suspend Employee'}
+                          >
+                            {employee.status === 'suspended' ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                           </button>
                         </div>
                       </td>
@@ -654,12 +746,33 @@ export default function Payroll() {
                             <button 
                               onClick={() => handleApproveTimeEntry(entry.id)}
                               className="p-1 text-gray-500 hover:text-green-600"
+                              title="Approve Time Entry"
                             >
                               <CheckCircle className="w-4 h-4" />
                             </button>
                           )}
-                          <button className="p-1 text-gray-500 hover:text-blue-600">
+                          {!entry.approved && (
+                            <button 
+                              onClick={() => handleRejectTimeEntry(entry.id)}
+                              className="p-1 text-gray-500 hover:text-red-600"
+                              title="Reject Time Entry"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => handleEditTimeEntry(entry.id)}
+                            className="p-1 text-gray-500 hover:text-blue-600"
+                            title="Edit Time Entry"
+                          >
                             <Edit className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteTimeEntry(entry.id)}
+                            className="p-1 text-gray-500 hover:text-red-600"
+                            title="Delete Time Entry"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -742,13 +855,25 @@ export default function Payroll() {
                               <button 
                                 onClick={() => handleRejectLeave(leave.id)}
                                 className="p-1 text-gray-500 hover:text-red-600"
+                                title="Reject Leave Request"
                               >
                                 <X className="w-4 h-4" />
                               </button>
                             </>
                           )}
-                          <button className="p-1 text-gray-500 hover:text-blue-600">
+                          <button 
+                            onClick={() => handleViewLeaveRequest(leave.id)}
+                            className="p-1 text-gray-500 hover:text-blue-600"
+                            title="View Leave Request"
+                          >
                             <Eye className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteLeaveRequest(leave.id)}
+                            className="p-1 text-gray-500 hover:text-red-600"
+                            title="Delete Leave Request"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>

@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { Plus, Search, Package, TrendingDown, Calendar, Wrench, Eye, Edit } from 'lucide-react';
+import { Plus, Search, Package, TrendingDown, Calendar, Wrench, Eye, Edit, Trash2, CheckCircle, AlertTriangle, Download, Settings } from 'lucide-react';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
+import Modal from '../components/UI/Modal';
+import AssetForm from '../components/Forms/AssetForm';
+import MaintenanceForm from '../components/Forms/MaintenanceForm';
 
 const mockAssets = [
   {
@@ -93,8 +96,14 @@ export default function FixedAssets() {
   const [activeTab, setActiveTab] = useState('assets');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [assets, setAssets] = useState(mockAssets);
+  const [maintenanceRecords, setMaintenanceRecords] = useState(mockMaintenanceRecords);
+  const [showAssetModal, setShowAssetModal] = useState(false);
+  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<any>(null);
+  const [editingMaintenance, setEditingMaintenance] = useState<any>(null);
 
-  const filteredAssets = mockAssets.filter(asset => {
+  const filteredAssets = assets.filter(asset => {
     const matchesSearch = asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          asset.assetNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          asset.category.toLowerCase().includes(searchTerm.toLowerCase());
@@ -117,6 +126,78 @@ export default function FixedAssets() {
   const totalDepreciation = filteredAssets.reduce((sum, asset) => sum + (asset.purchasePrice - asset.currentValue), 0);
   const maintenanceDue = filteredAssets.filter(asset => new Date(asset.nextMaintenance) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length;
 
+  // Asset CRUD Operations
+  const handleAddAsset = () => {
+    setEditingAsset(null);
+    setShowAssetModal(true);
+  };
+
+  const handleEditAsset = (asset: any) => {
+    setEditingAsset(asset);
+    setShowAssetModal(true);
+  };
+
+  const handleViewAsset = (assetId: number) => {
+    const asset = assets.find(a => a.id === assetId);
+    if (asset) {
+      setEditingAsset(asset);
+      setShowAssetModal(true);
+    }
+  };
+
+  const handleSubmitAsset = (assetData: any) => {
+    if (editingAsset) {
+      setAssets(prev => prev.map(asset => asset.id === editingAsset.id ? { ...asset, ...assetData } : asset));
+    } else {
+      const newAsset = { ...assetData, id: Date.now() };
+      setAssets(prev => [...prev, newAsset]);
+    }
+    setShowAssetModal(false);
+    setEditingAsset(null);
+  };
+
+  const handleDeleteAsset = (assetId: number) => {
+    if (confirm('Are you sure you want to delete this asset? This action cannot be undone.')) {
+      setAssets(prev => prev.filter(asset => asset.id !== assetId));
+    }
+  };
+
+  const handleDisposeAsset = (assetId: number) => {
+    if (confirm('Are you sure you want to dispose of this asset?')) {
+      setAssets(prev => prev.map(asset => 
+        asset.id === assetId ? { ...asset, status: 'disposed' } : asset
+      ));
+    }
+  };
+
+  // Maintenance CRUD Operations
+  const handleAddMaintenance = () => {
+    setEditingMaintenance(null);
+    setShowMaintenanceModal(true);
+  };
+
+  const handleEditMaintenance = (maintenance: any) => {
+    setEditingMaintenance(maintenance);
+    setShowMaintenanceModal(true);
+  };
+
+  const handleSubmitMaintenance = (maintenanceData: any) => {
+    if (editingMaintenance) {
+      setMaintenanceRecords(prev => prev.map(record => record.id === editingMaintenance.id ? { ...record, ...maintenanceData } : record));
+    } else {
+      const newMaintenance = { ...maintenanceData, id: Date.now() };
+      setMaintenanceRecords(prev => [...prev, newMaintenance]);
+    }
+    setShowMaintenanceModal(false);
+    setEditingMaintenance(null);
+  };
+
+  const handleDeleteMaintenance = (maintenanceId: number) => {
+    if (confirm('Are you sure you want to delete this maintenance record?')) {
+      setMaintenanceRecords(prev => prev.filter(record => record.id !== maintenanceId));
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -130,7 +211,7 @@ export default function FixedAssets() {
             <TrendingDown className="w-4 h-4 mr-2" />
             Depreciation Report
           </Button>
-          <Button>
+          <Button onClick={handleAddAsset}>
             <Plus className="w-4 h-4 mr-2" />
             Add Asset
           </Button>
@@ -313,10 +394,31 @@ export default function FixedAssets() {
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
                           <button className="p-1 text-gray-500 hover:text-blue-600">
+                            onClick={() => handleViewAsset(asset.id)}
+                            title="View Asset"
+                          >
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button className="p-1 text-gray-500 hover:text-blue-600">
+                          <button 
+                            onClick={() => handleEditAsset(asset)}
+                            className="p-1 text-gray-500 hover:text-blue-600"
+                            title="Edit Asset"
+                          >
                             <Edit className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDisposeAsset(asset.id)}
+                            className="p-1 text-gray-500 hover:text-yellow-600"
+                            title="Dispose Asset"
+                          >
+                            <AlertTriangle className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteAsset(asset.id)}
+                            className="p-1 text-gray-500 hover:text-red-600"
+                            title="Delete Asset"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -334,7 +436,7 @@ export default function FixedAssets() {
         <Card>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">Maintenance Records</h2>
-            <Button>
+            <Button onClick={handleAddMaintenance}>
               <Plus className="w-4 h-4 mr-2" />
               Schedule Maintenance
             </Button>
@@ -361,6 +463,9 @@ export default function FixedAssets() {
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
                   </th>
                 </tr>
               </thead>
@@ -391,6 +496,31 @@ export default function FixedAssets() {
                         {record.status}
                       </span>
                     </td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center space-x-2">
+                        <button 
+                          onClick={() => console.log('Viewing maintenance record:', record.id)}
+                          className="p-1 text-gray-500 hover:text-blue-600"
+                          title="View Record"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleEditMaintenance(record)}
+                          className="p-1 text-gray-500 hover:text-blue-600"
+                          title="Edit Record"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteMaintenance(record.id)}
+                          className="p-1 text-gray-500 hover:text-red-600"
+                          title="Delete Record"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -402,13 +532,97 @@ export default function FixedAssets() {
       {/* Depreciation Tab */}
       {activeTab === 'depreciation' && (
         <Card>
-          <div className="text-center py-12">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Depreciation Schedules</h3>
-            <p className="text-gray-600 mb-4">View and manage asset depreciation calculations</p>
-            <Button>Generate Depreciation Report</Button>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-gray-900">Depreciation Schedules</h2>
+            <div className="flex space-x-3">
+              <Button variant="secondary" onClick={() => console.log('Calculating depreciation')}>
+                <Calculator className="w-4 h-4 mr-2" />
+                Calculate Depreciation
+              </Button>
+              <Button onClick={() => console.log('Generating depreciation report')}>
+                <Download className="w-4 h-4 mr-2" />
+                Generate Report
+              </Button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Asset</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Purchase Price</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Current Value</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Annual Depreciation</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining Life</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredAssets.map((asset) => {
+                  const annualDepreciation = (asset.purchasePrice - asset.salvageValue) / asset.usefulLife;
+                  const totalDepreciation = asset.purchasePrice - asset.currentValue;
+                  const remainingLife = asset.usefulLife - (totalDepreciation / annualDepreciation);
+                  
+                  return (
+                    <tr key={asset.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-4">
+                        <div>
+                          <p className="font-medium text-gray-900">{asset.name}</p>
+                          <p className="text-sm text-gray-500">{asset.assetNumber}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="text-sm text-gray-900 capitalize">{asset.depreciationMethod.replace('_', ' ')}</p>
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <p className="text-sm text-gray-900">${asset.purchasePrice.toLocaleString()}</p>
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <p className="font-semibold text-green-600">${asset.currentValue.toLocaleString()}</p>
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <p className="text-sm text-orange-600">${annualDepreciation.toFixed(2)}</p>
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <p className="text-sm text-gray-900">{remainingLife.toFixed(1)} years</p>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </Card>
       )}
+
+      {/* Modals */}
+      <Modal
+        isOpen={showAssetModal}
+        onClose={() => setShowAssetModal(false)}
+        title={editingAsset ? 'Edit Asset' : 'Add New Asset'}
+        size="xl"
+      >
+        <AssetForm
+          asset={editingAsset}
+          onSubmit={handleSubmitAsset}
+          onCancel={() => setShowAssetModal(false)}
+        />
+      </Modal>
+
+      <Modal
+        isOpen={showMaintenanceModal}
+        onClose={() => setShowMaintenanceModal(false)}
+        title={editingMaintenance ? 'Edit Maintenance Record' : 'Schedule Maintenance'}
+        size="lg"
+      >
+        <MaintenanceForm
+          maintenance={editingMaintenance}
+          assets={assets}
+          onSubmit={handleSubmitMaintenance}
+          onCancel={() => setShowMaintenanceModal(false)}
+        />
+      </Modal>
     </div>
   );
 }

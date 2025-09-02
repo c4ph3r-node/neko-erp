@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { Plus, Search, Clock, DollarSign, Users, Calendar, BarChart3, Play, Pause } from 'lucide-react';
+import { Plus, Search, Clock, DollarSign, Users, Calendar, BarChart3, Play, Pause, Edit, Eye, Trash2, CheckCircle, X } from 'lucide-react';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
+import Modal from '../components/UI/Modal';
+import ProjectForm from '../components/Forms/ProjectForm';
+import TimeEntryForm from '../components/Forms/TimeEntryForm';
 
 const mockProjects = [
   {
@@ -81,7 +84,12 @@ export default function Projects() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('projects');
-  const [projects] = useState(mockProjects);
+  const [projects, setProjects] = useState(mockProjects);
+  const [timeEntries, setTimeEntries] = useState(recentTimeEntries);
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [showTimeModal, setShowTimeModal] = useState(false);
+  const [editingProject, setEditingProject] = useState<any>(null);
+  const [editingTimeEntry, setEditingTimeEntry] = useState<any>(null);
 
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -105,6 +113,85 @@ export default function Projects() {
   const totalActualCost = filteredProjects.reduce((sum, project) => sum + project.actualCost, 0);
   const activeProjects = filteredProjects.filter(p => p.status === 'active').length;
 
+  // Project CRUD Operations
+  const handleAddProject = () => {
+    setEditingProject(null);
+    setShowProjectModal(true);
+  };
+
+  const handleEditProject = (project: any) => {
+    setEditingProject(project);
+    setShowProjectModal(true);
+  };
+
+  const handleViewProject = (projectId: number) => {
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+      setEditingProject(project);
+      setShowProjectModal(true);
+    }
+  };
+
+  const handleSubmitProject = (projectData: any) => {
+    if (editingProject) {
+      setProjects(prev => prev.map(proj => proj.id === editingProject.id ? { ...proj, ...projectData } : proj));
+    } else {
+      const newProject = { ...projectData, id: Date.now() };
+      setProjects(prev => [...prev, newProject]);
+    }
+    setShowProjectModal(false);
+    setEditingProject(null);
+  };
+
+  const handleDeleteProject = (projectId: number) => {
+    if (confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
+      setProjects(prev => prev.filter(proj => proj.id !== projectId));
+    }
+  };
+
+  const handleToggleProjectStatus = (projectId: number) => {
+    setProjects(prev => prev.map(proj => 
+      proj.id === projectId ? { 
+        ...proj, 
+        status: proj.status === 'active' ? 'on_hold' : 'active' 
+      } : proj
+    ));
+  };
+
+  // Time Entry CRUD Operations
+  const handleAddTimeEntry = () => {
+    setEditingTimeEntry(null);
+    setShowTimeModal(true);
+  };
+
+  const handleEditTimeEntry = (timeEntry: any) => {
+    setEditingTimeEntry(timeEntry);
+    setShowTimeModal(true);
+  };
+
+  const handleSubmitTimeEntry = (timeData: any) => {
+    if (editingTimeEntry) {
+      setTimeEntries(prev => prev.map(entry => entry.id === editingTimeEntry.id ? { ...entry, ...timeData } : entry));
+    } else {
+      const newTimeEntry = { ...timeData, id: Date.now() };
+      setTimeEntries(prev => [...prev, newTimeEntry]);
+    }
+    setShowTimeModal(false);
+    setEditingTimeEntry(null);
+  };
+
+  const handleDeleteTimeEntry = (entryId: number) => {
+    if (confirm('Are you sure you want to delete this time entry?')) {
+      setTimeEntries(prev => prev.filter(entry => entry.id !== entryId));
+    }
+  };
+
+  const handleApproveTimeEntry = (entryId: number) => {
+    setTimeEntries(prev => prev.map(entry => 
+      entry.id === entryId ? { ...entry, approved: true } : entry
+    ));
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -118,9 +205,9 @@ export default function Projects() {
             <BarChart3 className="w-4 h-4 mr-2" />
             Project Reports
           </Button>
-          <Button>
+          <Button onClick={handleAddProject}>
             <Plus className="w-4 h-4 mr-2" />
-            New Project
+            Create Project
           </Button>
         </div>
       </div>
@@ -292,11 +379,19 @@ export default function Projects() {
                   </div>
 
                   <div className="flex space-x-2">
-                    <Button variant="secondary" size="sm" className="flex-1">
-                      View Details
+                    <Button variant="secondary" size="sm" onClick={() => handleViewProject(project.id)}>
+                      <Eye className="w-4 h-4 mr-1" />
+                      View
                     </Button>
-                    <Button size="sm" className="flex-1">
-                      Log Time
+                    <Button variant="secondary" size="sm" onClick={() => handleEditProject(project)}>
+                      <Edit className="w-4 h-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={() => handleToggleProjectStatus(project.id)}>
+                      {project.status === 'active' ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={() => handleDeleteProject(project.id)}>
+                      <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
@@ -312,7 +407,7 @@ export default function Projects() {
           <Card>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900">Recent Time Entries</h2>
-              <Button>
+              <Button onClick={handleAddTimeEntry}>
                 <Plus className="w-4 h-4 mr-2" />
                 Log Time
               </Button>
@@ -340,10 +435,13 @@ export default function Projects() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Billable
                     </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {recentTimeEntries.map((entry) => (
+                  {timeEntries.map((entry) => (
                     <tr key={entry.id} className="hover:bg-gray-50">
                       <td className="px-4 py-4">
                         <p className="text-sm text-gray-900">{entry.date}</p>
@@ -367,6 +465,31 @@ export default function Projects() {
                           {entry.billable ? 'Billable' : 'Non-billable'}
                         </span>
                       </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center space-x-2">
+                          <button 
+                            onClick={() => handleEditTimeEntry(entry)}
+                            className="p-1 text-gray-500 hover:text-blue-600"
+                            title="Edit Time Entry"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleApproveTimeEntry(entry.id)}
+                            className="p-1 text-gray-500 hover:text-green-600"
+                            title="Approve Time Entry"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteTimeEntry(entry.id)}
+                            className="p-1 text-gray-500 hover:text-red-600"
+                            title="Delete Time Entry"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -375,6 +498,34 @@ export default function Projects() {
           </Card>
         </div>
       )}
+
+      {/* Modals */}
+      <Modal
+        isOpen={showProjectModal}
+        onClose={() => setShowProjectModal(false)}
+        title={editingProject ? 'Edit Project' : 'Create New Project'}
+        size="xl"
+      >
+        <ProjectForm
+          project={editingProject}
+          onSubmit={handleSubmitProject}
+          onCancel={() => setShowProjectModal(false)}
+        />
+      </Modal>
+
+      <Modal
+        isOpen={showTimeModal}
+        onClose={() => setShowTimeModal(false)}
+        title={editingTimeEntry ? 'Edit Time Entry' : 'Log Time Entry'}
+        size="lg"
+      >
+        <TimeEntryForm
+          timeEntry={editingTimeEntry}
+          projects={projects}
+          onSubmit={handleSubmitTimeEntry}
+          onCancel={() => setShowTimeModal(false)}
+        />
+      </Modal>
     </div>
   );
 }

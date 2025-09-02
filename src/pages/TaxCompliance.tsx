@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, Calculator, FileText, AlertTriangle, CheckCircle, Download, Calendar, DollarSign, Percent, Globe } from 'lucide-react';
+import { Plus, Search, Calculator, FileText, AlertTriangle, CheckCircle, Download, Calendar, DollarSign, Percent, Globe, Edit, Eye, X } from 'lucide-react';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
@@ -190,6 +190,14 @@ export default function TaxCompliance() {
     setShowReturnModal(true);
   };
 
+  const handleViewReturn = (returnId: number) => {
+    const taxReturn = taxReturns.find(r => r.id === returnId);
+    if (taxReturn) {
+      setEditingReturn(taxReturn);
+      setShowReturnModal(true);
+    }
+  };
+
   const handleSubmitReturn = (returnData: any) => {
     if (editingReturn) {
       setTaxReturns(prev => prev.map(ret => ret.id === editingReturn.id ? { ...ret, ...returnData } : ret));
@@ -205,6 +213,17 @@ export default function TaxCompliance() {
     setTaxReturns(prev => prev.map(ret => 
       ret.id === returnId ? { ...ret, status: 'filed', filedDate: new Date().toISOString().split('T')[0] } : ret
     ));
+  };
+
+  const handleDeleteReturn = (returnId: number) => {
+    if (confirm('Are you sure you want to delete this tax return?')) {
+      setTaxReturns(prev => prev.filter(ret => ret.id !== returnId));
+    }
+  };
+
+  const handleDownloadReturn = (returnId: number) => {
+    console.log('Downloading tax return:', returnId);
+    // Implementation for downloading tax return PDF
   };
 
   const handleCreateTaxSetting = () => {
@@ -226,6 +245,18 @@ export default function TaxCompliance() {
     }
     setShowSettingsModal(false);
     setEditingSettings(null);
+  };
+
+  const handleToggleTaxSetting = (settingId: number) => {
+    setTaxSettings(prev => prev.map(setting => 
+      setting.id === settingId ? { ...setting, isActive: !setting.isActive } : setting
+    ));
+  };
+
+  const handleDeleteTaxSetting = (settingId: number) => {
+    if (confirm('Are you sure you want to delete this tax setting?')) {
+      setTaxSettings(prev => prev.filter(setting => setting.id !== settingId));
+    }
   };
 
   const totalTaxOwed = filteredReturns.reduce((sum, ret) => sum + (ret.netVat || ret.taxOwed || ret.totalTax || 0), 0);
@@ -417,14 +448,16 @@ export default function TaxCompliance() {
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
                           <button 
-                            onClick={() => console.log('Viewing tax return:', taxReturn.id)}
+                            onClick={() => handleViewReturn(taxReturn.id)}
                             className="p-1 text-gray-500 hover:text-blue-600"
+                            title="View Return"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button 
                             onClick={() => handleEditReturn(taxReturn)}
                             className="p-1 text-gray-500 hover:text-blue-600"
+                            title="Edit Return"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
@@ -432,15 +465,24 @@ export default function TaxCompliance() {
                             <button 
                               onClick={() => handleFileReturn(taxReturn.id)}
                               className="p-1 text-gray-500 hover:text-green-600"
+                              title="File Return"
                             >
                               <CheckCircle className="w-4 h-4" />
                             </button>
                           )}
                           <button 
-                            onClick={() => console.log('Downloading tax return:', taxReturn.id)}
+                            onClick={() => handleDownloadReturn(taxReturn.id)}
                             className="p-1 text-gray-500 hover:text-purple-600"
+                            title="Download PDF"
                           >
                             <Download className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteReturn(taxReturn.id)}
+                            className="p-1 text-gray-500 hover:text-red-600"
+                            title="Delete Return"
+                          >
+                            <X className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -510,14 +552,23 @@ export default function TaxCompliance() {
                           <button 
                             onClick={() => handleEditTaxSetting(setting)}
                             className="p-1 text-gray-500 hover:text-blue-600"
+                            title="Edit Setting"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button 
-                            onClick={() => console.log('Toggling tax setting:', setting.id)}
+                            onClick={() => handleToggleTaxSetting(setting.id)}
                             className="p-1 text-gray-500 hover:text-green-600"
+                            title="Toggle Active Status"
                           >
                             <CheckCircle className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteTaxSetting(setting.id)}
+                            className="p-1 text-gray-500 hover:text-red-600"
+                            title="Delete Setting"
+                          >
+                            <X className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -584,13 +635,18 @@ export default function TaxCompliance() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
-                          <button className="p-1 text-gray-500 hover:text-blue-600">
+                          <button 
+                            onClick={() => console.log('Viewing withholding details:', withholding.id)}
+                            className="p-1 text-gray-500 hover:text-blue-600"
+                            title="View Details"
+                          >
                             <Eye className="w-4 h-4" />
                           </button>
                           {!withholding.certificateIssued && (
                             <button 
                               onClick={() => console.log('Issuing certificate:', withholding.id)}
                               className="p-1 text-gray-500 hover:text-green-600"
+                              title="Issue Certificate"
                             >
                               <FileText className="w-4 h-4" />
                             </button>
@@ -598,6 +654,7 @@ export default function TaxCompliance() {
                           <button 
                             onClick={() => console.log('Downloading certificate:', withholding.id)}
                             className="p-1 text-gray-500 hover:text-purple-600"
+                            title="Download Certificate"
                           >
                             <Download className="w-4 h-4" />
                           </button>
@@ -661,13 +718,25 @@ export default function TaxCompliance() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
-                        <button className="p-1 text-gray-500 hover:text-blue-600">
+                        <button 
+                          onClick={() => console.log('Viewing audit details:', audit.id)}
+                          className="p-1 text-gray-500 hover:text-blue-600"
+                          title="View Details"
+                        >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button className="p-1 text-gray-500 hover:text-blue-600">
+                        <button 
+                          onClick={() => console.log('Editing audit:', audit.id)}
+                          className="p-1 text-gray-500 hover:text-blue-600"
+                          title="Edit Audit"
+                        >
                           <Edit className="w-4 h-4" />
                         </button>
-                        <button className="p-1 text-gray-500 hover:text-green-600">
+                        <button 
+                          onClick={() => console.log('Downloading audit report:', audit.id)}
+                          className="p-1 text-gray-500 hover:text-green-600"
+                          title="Download Report"
+                        >
                           <Download className="w-4 h-4" />
                         </button>
                       </div>

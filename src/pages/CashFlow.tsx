@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, TrendingUp, TrendingDown, DollarSign, Calendar, Download, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Plus, Search, TrendingUp, TrendingDown, DollarSign, Calendar, Download, RefreshCw, AlertTriangle, Edit, Trash2 } from 'lucide-react';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
@@ -142,6 +142,14 @@ export default function CashFlow() {
   const handleExportCashFlow = () => {
     console.log('Exporting cash flow data...');
     // Implementation for exporting cash flow data
+  };
+
+  const handleViewEntry = (entryId: number) => {
+    const entry = cashFlowData.find(e => e.id === entryId);
+    if (entry) {
+      setEditingEntry(entry);
+      setShowModal(true);
+    }
   };
 
   return (
@@ -334,14 +342,23 @@ export default function CashFlow() {
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
                           <button 
+                            onClick={() => handleViewEntry(entry.id)}
+                            className="p-1 text-gray-500 hover:text-blue-600"
+                            title="View Entry"
+                          >
+                            <Search className="w-4 h-4" />
+                          </button>
+                          <button 
                             onClick={() => handleEditCashFlowEntry(entry)}
                             className="p-1 text-gray-500 hover:text-blue-600"
+                            title="Edit Entry"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button 
                             onClick={() => handleDeleteCashFlowEntry(entry.id)}
                             className="p-1 text-gray-500 hover:text-red-600"
+                            title="Delete Entry"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>

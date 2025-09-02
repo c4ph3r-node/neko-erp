@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, TrendingUp, TrendingDown, Target, BarChart3, Calendar, DollarSign, Percent, AlertTriangle } from 'lucide-react';
+import { Plus, Search, TrendingUp, TrendingDown, Target, BarChart3, Calendar, DollarSign, Percent, AlertTriangle, Edit, Eye, Copy, Trash2, Calculator } from 'lucide-react';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
@@ -135,6 +135,14 @@ export default function Budgeting() {
   const handleEditBudget = (budget: any) => {
     setEditingBudget(budget);
     setShowModal(true);
+  };
+
+  const handleViewBudget = (budgetId: number) => {
+    const budget = budgets.find(b => b.id === budgetId);
+    if (budget) {
+      setEditingBudget(budget);
+      setShowModal(true);
+    }
   };
 
   const handleSubmitBudget = (budgetData: any) => {
@@ -409,7 +417,7 @@ export default function Budgeting() {
                   </div>
 
                   <div className="flex space-x-2">
-                    <Button variant="secondary" size="sm" onClick={() => console.log('Viewing budget details:', budget.id)}>
+                    <Button variant="secondary" size="sm" onClick={() => handleViewBudget(budget.id)}>
                       <Eye className="w-4 h-4 mr-1" />
                       View
                     </Button>
@@ -420,6 +428,10 @@ export default function Budgeting() {
                     <Button variant="secondary" size="sm" onClick={() => handleCopyBudget(budget)}>
                       <Copy className="w-4 h-4 mr-1" />
                       Copy
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={() => handleDeleteBudget(budget.id)}>
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Delete
                     </Button>
                   </div>
                 </div>
