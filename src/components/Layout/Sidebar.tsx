@@ -94,7 +94,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
           </button>
         </div>
 
-        <nav className="p-4 space-y-2">
+        <nav className="p-4 space-y-2 overflow-y-auto max-h-[calc(100vh-120px)]">
           {navigation.map((item) => (
             <NavLink
               key={item.name}
