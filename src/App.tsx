@@ -213,7 +213,6 @@ function App() {
               <AppRoutes />
             </div>
           </DataProvider>
-          </DataProvider>
         </TenantProvider>
       </AuthProvider>
     </Router>
