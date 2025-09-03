@@ -97,7 +97,7 @@ export default function FixedAssets() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [assets, setAssets] = useState(mockAssets);
-  const [maintenanceRecords, setMaintenanceRecords] = useState(mockMaintenanceRecords);
+  const [maintenanceRecords, setMaintenanceRecords] = useState(maintenanceRecords);
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
   const [editingAsset, setEditingAsset] = useState<any>(null);
