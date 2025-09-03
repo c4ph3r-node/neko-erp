@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, Calculator, FileText, AlertTriangle, CheckCircle, Download, Calendar, DollarSign, Percent, Globe, Edit, Eye, X } from 'lucide-react';
+import { Plus, Search, Calculator, FileText, AlertTriangle, CheckCircle, Download, Calendar, DollarSign, Percent, Globe, Edit, Eye, X, Clock } from 'lucide-react';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
