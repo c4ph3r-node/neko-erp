@@ -147,20 +147,30 @@ export default function Estimates() {
   };
 
   const handleSendEstimate = (estimateId: number) => {
-    setEstimates(prev => prev.map(est => 
-      est.id === estimateId ? { ...est, status: 'sent' } : est
-    ));
+    sendEstimate(estimateId);
+    alert('Estimate sent successfully!');
   };
 
   const handleAcceptEstimate = (estimateId: number) => {
-    setEstimates(prev => prev.map(est => 
-      est.id === estimateId ? { ...est, status: 'accepted' } : est
-    ));
+    updateEstimate(estimateId, { status: 'accepted' });
+    alert('Estimate accepted!');
   };
 
   const handleConvertToInvoice = (estimateId: number) => {
-    console.log('Converting estimate to invoice:', estimateId);
-    // Navigate to invoice creation with estimate data
+    convertEstimateToInvoice(estimateId);
+    alert('Estimate converted to invoice successfully!');
+  };
+
+  const handleViewEstimate = (estimateId: number) => {
+    const estimate = estimates.find(e => e.id === estimateId);
+    if (estimate) {
+      setEditingEstimate(estimate);
+      setShowModal(true);
+    }
+  };
+
+  const handleDownloadEstimate = (estimateId: number) => {
+    downloadDocument('estimate', estimateId);
   };
 
   const handleDuplicateEstimate = (estimate: any) => {
@@ -320,7 +330,7 @@ export default function Estimates() {
               </div>
 
               <div className="flex space-x-2">
-                <Button variant="secondary" size="sm" onClick={() => console.log('Viewing estimate:', estimate.id)}>
+                <Button variant="secondary" size="sm" onClick={() => handleViewEstimate(estimate.id)}>
                   <Eye className="w-4 h-4 mr-1" />
                   View
                 </Button>
@@ -340,6 +350,9 @@ export default function Estimates() {
                     Invoice
                   </Button>
                 )}
+                <Button variant="secondary" size="sm" onClick={() => handleDownloadEstimate(estimate.id)}>
+                  <Download className="w-4 h-4" />
+                </Button>
                 <Button variant="secondary" size="sm" onClick={() => handleDuplicateEstimate(estimate)}>
                   <Copy className="w-4 h-4" />
                 </Button>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Download, Calendar, TrendingUp, DollarSign, FileText } from 'lucide-react';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
+import { useData } from '../contexts/DataContext';
 
 const reportCategories = [
   {
@@ -42,6 +43,34 @@ const financialSummary = {
 
 export default function Reports() {
   const [selectedPeriod, setSelectedPeriod] = useState('current-month');
+  const { generateReport, exportData } = useData();
+
+  const handleGenerateReport = (reportType: string) => {
+    const parameters = { period: selectedPeriod };
+    const reportData = generateReport(reportType, parameters);
+    
+    switch (reportType) {
+      case 'profit_loss':
+        alert(`Profit & Loss Report Generated:\nRevenue: $${reportData.revenue.toLocaleString()}\nExpenses: $${reportData.expenses.toLocaleString()}\nNet Income: $${reportData.netIncome.toLocaleString()}`);
+        break;
+      case 'balance_sheet':
+        alert(`Balance Sheet Generated:\nTotal Assets: $${reportData.totalAssets.toLocaleString()}\nTotal Liabilities: $${reportData.totalLiabilities.toLocaleString()}\nEquity: $${reportData.equity.toLocaleString()}`);
+        break;
+      case 'cash_flow':
+        alert(`Cash Flow Report Generated:\nInflows: $${reportData.inflows.toLocaleString()}\nOutflows: $${reportData.outflows.toLocaleString()}\nNet Cash Flow: $${reportData.netCashFlow.toLocaleString()}`);
+        break;
+      case 'ar_aging':
+        const totalAR = reportData.reduce((sum: number, item: any) => sum + item.total, 0);
+        alert(`AR Aging Report Generated:\nTotal Outstanding: $${totalAR.toLocaleString()}\nCustomers: ${reportData.length}`);
+        break;
+      default:
+        alert('Report generated successfully!');
+    }
+  };
+
+  const handleDownloadReport = (reportType: string) => {
+    exportData(reportType, 'pdf');
+  };
 
   return (
     <div className="space-y-6">
@@ -125,10 +154,10 @@ export default function Reports() {
                       <h3 className="font-medium text-gray-900 mb-2">{report.name}</h3>
                       <p className="text-sm text-gray-600 mb-4">{report.description}</p>
                       <div className="flex space-x-2">
-                        <Button size="sm" className="flex-1">
+                        <Button size="sm" className="flex-1" onClick={() => handleGenerateReport(report.name.toLowerCase().replace(/\s+/g, '_').replace('&', ''))}>
                           Generate
                         </Button>
-                        <Button variant="secondary" size="sm">
+                        <Button variant="secondary" size="sm" onClick={() => handleDownloadReport(report.name.toLowerCase().replace(/\s+/g, '_').replace('&', ''))}>
                           <Download className="w-4 h-4" />
                         </Button>
                       </div>

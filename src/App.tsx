@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { TenantProvider } from './contexts/TenantContext';
 import { DataProvider } from './contexts/DataContext';
+import { DataProvider } from './contexts/DataContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
@@ -211,6 +212,8 @@ function App() {
           <DataProvider>
             <div className="min-h-screen bg-gray-50">
               <AppRoutes />
+            </div>
+          </DataProvider>
             </div>
           </DataProvider>
         </TenantProvider>

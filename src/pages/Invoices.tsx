@@ -94,13 +94,20 @@ export default function Invoices() {
   };
 
   const handleSendInvoice = (invoiceId: number) => {
-    console.log('Sending invoice:', invoiceId);
-    // Here you would typically make an API call to send the invoice
+    sendInvoice(invoiceId);
+    alert('Invoice sent successfully!');
   };
 
   const handleDownloadInvoice = (invoiceId: number) => {
-    console.log('Downloading invoice:', invoiceId);
-    // Here you would typically generate and download the PDF
+    downloadDocument('invoice', invoiceId);
+  };
+
+  const handleViewInvoice = (invoiceId: number) => {
+    const invoice = invoices.find(i => i.id === invoiceId);
+    if (invoice) {
+      setEditingInvoice(invoice);
+      setShowModal(true);
+    }
   };
 
   return (
@@ -222,16 +229,32 @@ export default function Invoices() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center space-x-2">
-                      <button className="p-1 text-gray-500 hover:text-blue-600">
+                      <button 
+                        className="p-1 text-gray-500 hover:text-blue-600"
+                        onClick={() => handleViewInvoice(invoice.id)}
+                        title="View Invoice"
+                      >
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button className="p-1 text-gray-500 hover:text-blue-600" onClick={() => handleEditInvoice(invoice)}>
+                      <button 
+                        className="p-1 text-gray-500 hover:text-blue-600" 
+                        onClick={() => handleEditInvoice(invoice)}
+                        title="Edit Invoice"
+                      >
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button className="p-1 text-gray-500 hover:text-green-600" onClick={() => handleSendInvoice(invoice.id)}>
+                      <button 
+                        className="p-1 text-gray-500 hover:text-green-600" 
+                        onClick={() => handleSendInvoice(invoice.id)}
+                        title="Send Invoice"
+                      >
                         <Send className="w-4 h-4" />
                       </button>
-                      <button className="p-1 text-gray-500 hover:text-blue-600" onClick={() => handleDownloadInvoice(invoice.id)}>
+                      <button 
+                        className="p-1 text-gray-500 hover:text-blue-600" 
+                        onClick={() => handleDownloadInvoice(invoice.id)}
+                        title="Download PDF"
+                      >
                         <Download className="w-4 h-4" />
                       </button>
                     </div>
