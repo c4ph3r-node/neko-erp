@@ -14,7 +14,7 @@ import Card from '../components/UI/Card';
 const metrics = [
   {
     title: 'Total Revenue',
-    value: '$127,350',
+    value: 'KES 5,700,000',
     change: '+12.5%',
     trending: 'up',
     icon: DollarSign,
@@ -22,7 +22,7 @@ const metrics = [
   },
   {
     title: 'Outstanding Invoices',
-    value: '$23,840',
+    value: 'KES 459,320',
     change: '-8.2%',
     trending: 'down',
     icon: FileText,
@@ -30,7 +30,7 @@ const metrics = [
   },
   {
     title: 'Active Customers',
-    value: '248',
+    value: '3',
     change: '+5.1%',
     trending: 'up',
     icon: Users,
@@ -38,7 +38,7 @@ const metrics = [
   },
   {
     title: 'Monthly Expenses',
-    value: '$18,590',
+    value: 'KES 925,000',
     change: '+2.4%',
     trending: 'up',
     icon: CreditCard,
@@ -47,11 +47,11 @@ const metrics = [
 ];
 
 const recentTransactions = [
-  { id: 1, description: 'Invoice #1001 - Acme Corp', amount: '+$5,250', date: '2025-01-15', type: 'income' },
-  { id: 2, description: 'Office Supplies', amount: '-$342', date: '2025-01-14', type: 'expense' },
-  { id: 3, description: 'Invoice #1002 - TechStart Inc', amount: '+$3,800', date: '2025-01-14', type: 'income' },
-  { id: 4, description: 'Marketing Campaign', amount: '-$1,200', date: '2025-01-13', type: 'expense' },
-  { id: 5, description: 'Consulting Services', amount: '+$2,100', date: '2025-01-12', type: 'income' }
+  { id: 1, description: 'Invoice INV-001 - Safaricom PLC', amount: '+KES 145,000', date: '2025-01-15', type: 'income' },
+  { id: 2, description: 'KPLC Electricity Bill', amount: '-KES 58,000', date: '2025-01-14', type: 'expense' },
+  { id: 3, description: 'Invoice INV-002 - Equity Bank', amount: '+KES 103,820', date: '2025-01-14', type: 'income' },
+  { id: 4, description: 'Marketing Campaign', amount: '-KES 125,000', date: '2025-01-13', type: 'expense' },
+  { id: 5, description: 'Consulting Services', amount: '+KES 245,000', date: '2025-01-12', type: 'income' }
 ];
 
 export default function Dashboard() {
@@ -176,19 +176,19 @@ export default function Dashboard() {
                   <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                   <span className="text-sm font-medium text-gray-600">Money In</span>
                 </div>
-                <span className="font-semibold text-green-600">$45,200</span>
+                <span className="font-semibold text-green-600">KES 493,820</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                   <span className="text-sm font-medium text-gray-600">Money Out</span>
                 </div>
-                <span className="font-semibold text-red-600">$28,400</span>
+                <span className="font-semibold text-red-600">KES 308,000</span>
               </div>
               <div className="pt-2 border-t border-gray-200">
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-gray-900">Net Cash Flow</span>
-                  <span className="font-bold text-green-600">+$16,800</span>
+                  <span className="font-bold text-green-600">+KES 185,820</span>
                 </div>
               </div>
             </div>
