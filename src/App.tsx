@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { TenantProvider } from './contexts/TenantContext';
-import { DataProvider } from './contexts/DataContext';
+import { GlobalStateProvider } from './contexts/GlobalStateContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
@@ -208,11 +208,11 @@ function App() {
     <Router>
       <AuthProvider>
         <TenantProvider>
-          <DataProvider>
+          <GlobalStateProvider>
             <div className="min-h-screen bg-gray-50">
               <AppRoutes />
             </div>
-          </DataProvider>
+          </GlobalStateProvider>
         </TenantProvider>
       </AuthProvider>
     </Router>

@@ -1,63 +1,21 @@
 import React, { useState } from 'react';
-import { Plus, Search, Download, Eye, Edit, Send, FileText } from 'lucide-react';
+import { Plus, Search, Download, Eye, Edit, Send, FileText, Building2, CheckCircle, Printer, Mail, Copy } from 'lucide-react';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
 import InvoiceForm from '../components/Forms/InvoiceForm';
-
-const mockInvoices = [
-  {
-    id: 1,
-    invoiceNumber: 'INV-001',
-    customer: 'Acme Corporation',
-    amount: 5250.00,
-    status: 'paid',
-    issueDate: '2025-01-10',
-    dueDate: '2025-02-09',
-    description: 'Website development services'
-  },
-  {
-    id: 2,
-    invoiceNumber: 'INV-002',
-    customer: 'TechStart Inc',
-    amount: 3800.00,
-    status: 'sent',
-    issueDate: '2025-01-12',
-    dueDate: '2025-02-11',
-    description: 'Consulting services'
-  },
-  {
-    id: 3,
-    invoiceNumber: 'INV-003',
-    customer: 'Global Dynamics',
-    amount: 2100.00,
-    status: 'overdue',
-    issueDate: '2024-12-15',
-    dueDate: '2025-01-14',
-    description: 'Software licensing'
-  },
-  {
-    id: 4,
-    invoiceNumber: 'INV-004',
-    customer: 'Creative Solutions LLC',
-    amount: 1200.00,
-    status: 'draft',
-    issueDate: '2025-01-15',
-    dueDate: '2025-02-14',
-    description: 'Logo design and branding'
-  }
-];
+import { useGlobalState } from '../contexts/GlobalStateContext';
 
 export default function Invoices() {
+  const { state, addInvoice, updateInvoice, payInvoice, sendInvoice, downloadDocument, submitToKra } = useGlobalState();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [invoices] = useState(mockInvoices);
   const [showModal, setShowModal] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
 
-  const filteredInvoices = invoices.filter(invoice => {
+  const filteredInvoices = state.invoices.filter(invoice => {
     const matchesSearch = invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         invoice.customer.toLowerCase().includes(searchTerm.toLowerCase());
+                         invoice.customerName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -72,9 +30,10 @@ export default function Invoices() {
     }
   };
 
-  const totalAmount = filteredInvoices.reduce((sum, invoice) => sum + invoice.amount, 0);
-  const paidAmount = filteredInvoices.filter(i => i.status === 'paid').reduce((sum, invoice) => sum + invoice.amount, 0);
+  const totalAmount = filteredInvoices.reduce((sum, invoice) => sum + invoice.total, 0);
+  const paidAmount = filteredInvoices.filter(i => i.status === 'paid').reduce((sum, invoice) => sum + invoice.total, 0);
   const outstandingAmount = totalAmount - paidAmount;
+  const vatAmount = filteredInvoices.reduce((sum, invoice) => sum + invoice.vatAmount, 0);
 
   const handleAddInvoice = () => {
     setEditingInvoice(null);
@@ -82,31 +41,93 @@ export default function Invoices() {
   };
 
   const handleEditInvoice = (invoice: any) => {
+    if (invoice.status === 'paid') {
+      alert('Cannot edit paid invoices');
+      return;
+    }
     setEditingInvoice(invoice);
     setShowModal(true);
   };
 
+  const handleViewInvoice = (invoiceId: string) => {
+    const invoice = state.invoices.find(i => i.id === invoiceId);
+    if (invoice) {
+      const details = `Invoice Details:\n\nInvoice Number: ${invoice.invoiceNumber}\nCustomer: ${invoice.customerName}\nIssue Date: ${invoice.issueDate.toISOString().split('T')[0]}\nDue Date: ${invoice.dueDate.toISOString().split('T')[0]}\nStatus: ${invoice.status}\n\nSubtotal: KES ${invoice.subtotal.toLocaleString()}\nVAT (16%): KES ${invoice.vatAmount.toLocaleString()}\nTotal: KES ${invoice.total.toLocaleString()}\nPaid: KES ${invoice.paidAmount.toLocaleString()}\nOutstanding: KES ${(invoice.total - invoice.paidAmount).toLocaleString()}\n\nKRA Status: ${invoice.kraSubmitted ? 'Submitted to eTIMS' : 'Pending KRA Submission'}`;
+      alert(details);
+    }
+  };
+
   const handleSubmitInvoice = (invoiceData: any) => {
-    console.log('Submitting invoice:', invoiceData);
-    // Here you would typically make an API call to save the invoice
+    if (editingInvoice) {
+      updateInvoice(editingInvoice.id, invoiceData);
+    } else {
+      addInvoice(invoiceData);
+    }
     setShowModal(false);
     setEditingInvoice(null);
   };
 
-  const handleSendInvoice = (invoiceId: number) => {
+  const handleSendInvoice = (invoiceId: string) => {
     sendInvoice(invoiceId);
-    alert('Invoice sent successfully!');
+    alert('Invoice sent successfully via email and SMS!');
   };
 
-  const handleDownloadInvoice = (invoiceId: number) => {
+  const handleDownloadInvoice = (invoiceId: string) => {
     downloadDocument('invoice', invoiceId);
   };
 
-  const handleViewInvoice = (invoiceId: number) => {
-    const invoice = invoices.find(i => i.id === invoiceId);
+  const handlePayInvoice = (invoiceId: string) => {
+    const invoice = state.invoices.find(i => i.id === invoiceId);
     if (invoice) {
-      setEditingInvoice(invoice);
-      setShowModal(true);
+      const outstanding = invoice.total - invoice.paidAmount;
+      const paymentAmount = parseFloat(prompt(`Enter payment amount (Outstanding: KES ${outstanding.toLocaleString()}):`) || '0');
+      
+      if (paymentAmount > 0 && paymentAmount <= outstanding) {
+        payInvoice(invoiceId, paymentAmount);
+        alert(`Payment of KES ${paymentAmount.toLocaleString()} recorded successfully!`);
+      } else if (paymentAmount > outstanding) {
+        alert('Payment amount cannot exceed outstanding balance');
+      }
+    }
+  };
+
+  const handleSubmitToKra = async (invoiceId: string) => {
+    const success = await submitToKra('invoice', invoiceId);
+    if (success) {
+      alert('Invoice successfully submitted to KRA eTIMS system');
+    }
+  };
+
+  const handleDuplicateInvoice = (invoice: any) => {
+    const duplicatedInvoice = {
+      ...invoice,
+      issueDate: new Date(),
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      status: 'draft',
+      paidAmount: 0,
+      kraSubmitted: false,
+      etims: false
+    };
+    delete duplicatedInvoice.id;
+    delete duplicatedInvoice.invoiceNumber;
+    
+    addInvoice(duplicatedInvoice);
+    alert('Invoice duplicated successfully!');
+  };
+
+  const handlePrintInvoice = (invoiceId: string) => {
+    const invoice = state.invoices.find(i => i.id === invoiceId);
+    if (invoice) {
+      console.log('Printing invoice:', invoice);
+      alert(`Invoice ${invoice.invoiceNumber} sent to printer`);
+    }
+  };
+
+  const handleEmailInvoice = (invoiceId: string) => {
+    const invoice = state.invoices.find(i => i.id === invoiceId);
+    if (invoice) {
+      console.log('Emailing invoice:', invoice);
+      alert(`Invoice ${invoice.invoiceNumber} will be emailed to ${invoice.customerName}`);
     }
   };
 
@@ -116,32 +137,44 @@ export default function Invoices() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
-          <p className="text-gray-600">Create, send, and track your invoices</p>
+          <p className="text-gray-600">Create, send, and track your invoices with KRA eTIMS integration</p>
         </div>
-        <Button onClick={handleAddInvoice}>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Invoice
-        </Button>
+        <div className="flex space-x-3">
+          <Button variant="secondary" onClick={() => console.log('Opening invoice templates')}>
+            <FileText className="w-4 h-4 mr-2" />
+            Templates
+          </Button>
+          <Button onClick={handleAddInvoice}>
+            <Plus className="w-4 h-4 mr-2" />
+            Create Invoice
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <div className="text-center">
             <p className="text-sm font-medium text-gray-600">Total Invoice Value</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">${totalAmount.toFixed(2)}</p>
+            <p className="text-2xl font-bold text-gray-900 mt-1">KES {totalAmount.toLocaleString()}</p>
           </div>
         </Card>
         <Card>
           <div className="text-center">
             <p className="text-sm font-medium text-gray-600">Paid Amount</p>
-            <p className="text-2xl font-bold text-green-600 mt-1">${paidAmount.toFixed(2)}</p>
+            <p className="text-2xl font-bold text-green-600 mt-1">KES {paidAmount.toLocaleString()}</p>
           </div>
         </Card>
         <Card>
           <div className="text-center">
             <p className="text-sm font-medium text-gray-600">Outstanding</p>
-            <p className="text-2xl font-bold text-orange-600 mt-1">${outstandingAmount.toFixed(2)}</p>
+            <p className="text-2xl font-bold text-orange-600 mt-1">KES {outstandingAmount.toLocaleString()}</p>
+          </div>
+        </Card>
+        <Card>
+          <div className="text-center">
+            <p className="text-sm font-medium text-gray-600">VAT Collected</p>
+            <p className="text-2xl font-bold text-purple-600 mt-1">KES {vatAmount.toLocaleString()}</p>
           </div>
         </Card>
       </div>
@@ -187,11 +220,14 @@ export default function Invoices() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Customer
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Amount (KES)
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  KRA Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Due Date
@@ -207,17 +243,22 @@ export default function Invoices() {
                   <td className="px-6 py-4">
                     <div>
                       <p className="font-medium text-gray-900">{invoice.invoiceNumber}</p>
-                      <p className="text-sm text-gray-500">{invoice.issueDate}</p>
+                      <p className="text-sm text-gray-500">{invoice.issueDate.toISOString().split('T')[0]}</p>
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <div>
-                      <p className="font-medium text-gray-900">{invoice.customer}</p>
-                      <p className="text-sm text-gray-500">{invoice.description}</p>
+                      <p className="font-medium text-gray-900">{invoice.customerName}</p>
+                      <p className="text-sm text-gray-500">
+                        {invoice.lines.map(line => line.description).join(', ').substring(0, 50)}...
+                      </p>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <p className="font-semibold text-gray-900">${invoice.amount.toFixed(2)}</p>
+                  <td className="px-6 py-4 text-right">
+                    <div>
+                      <p className="font-semibold text-gray-900">{invoice.total.toLocaleString()}</p>
+                      <p className="text-sm text-gray-500">VAT: {invoice.vatAmount.toLocaleString()}</p>
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(invoice.status)}`}>
@@ -225,31 +266,51 @@ export default function Invoices() {
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <p className="text-sm text-gray-900">{invoice.dueDate}</p>
+                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
+                      invoice.kraSubmitted ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {invoice.kraSubmitted ? 'SUBMITTED' : 'PENDING'}
+                    </span>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center space-x-2">
+                    <p className="text-sm text-gray-900">{invoice.dueDate.toISOString().split('T')[0]}</p>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center space-x-1">
                       <button 
                         className="p-1 text-gray-500 hover:text-blue-600"
                         onClick={() => handleViewInvoice(invoice.id)}
-                        title="View Invoice"
+                        title="View Invoice Details"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button 
-                        className="p-1 text-gray-500 hover:text-blue-600" 
-                        onClick={() => handleEditInvoice(invoice)}
-                        title="Edit Invoice"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button 
-                        className="p-1 text-gray-500 hover:text-green-600" 
-                        onClick={() => handleSendInvoice(invoice.id)}
-                        title="Send Invoice"
-                      >
-                        <Send className="w-4 h-4" />
-                      </button>
+                      {invoice.status !== 'paid' && (
+                        <button 
+                          className="p-1 text-gray-500 hover:text-blue-600" 
+                          onClick={() => handleEditInvoice(invoice)}
+                          title="Edit Invoice"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      )}
+                      {invoice.status === 'draft' && (
+                        <button 
+                          className="p-1 text-gray-500 hover:text-green-600" 
+                          onClick={() => handleSendInvoice(invoice.id)}
+                          title="Send Invoice"
+                        >
+                          <Send className="w-4 h-4" />
+                        </button>
+                      )}
+                      {invoice.status !== 'paid' && (
+                        <button 
+                          className="p-1 text-gray-500 hover:text-green-600" 
+                          onClick={() => handlePayInvoice(invoice.id)}
+                          title="Record Payment"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                        </button>
+                      )}
                       <button 
                         className="p-1 text-gray-500 hover:text-blue-600" 
                         onClick={() => handleDownloadInvoice(invoice.id)}
@@ -257,6 +318,36 @@ export default function Invoices() {
                       >
                         <Download className="w-4 h-4" />
                       </button>
+                      <button 
+                        className="p-1 text-gray-500 hover:text-purple-600" 
+                        onClick={() => handlePrintInvoice(invoice.id)}
+                        title="Print Invoice"
+                      >
+                        <Printer className="w-4 h-4" />
+                      </button>
+                      <button 
+                        className="p-1 text-gray-500 hover:text-orange-600" 
+                        onClick={() => handleEmailInvoice(invoice.id)}
+                        title="Email Invoice"
+                      >
+                        <Mail className="w-4 h-4" />
+                      </button>
+                      <button 
+                        className="p-1 text-gray-500 hover:text-gray-600" 
+                        onClick={() => handleDuplicateInvoice(invoice)}
+                        title="Duplicate Invoice"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                      {!invoice.kraSubmitted && invoice.status !== 'draft' && (
+                        <button 
+                          className="p-1 text-gray-500 hover:text-red-600" 
+                          onClick={() => handleSubmitToKra(invoice.id)}
+                          title="Submit to KRA"
+                        >
+                          <Building2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

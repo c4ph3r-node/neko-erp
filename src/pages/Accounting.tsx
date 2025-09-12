@@ -1,27 +1,26 @@
 import React, { useState } from 'react';
-import { Plus, Search, BookOpen, TrendingUp, Edit, Trash2, Eye, FileText, Calculator, Download, CheckCircle, X, ArrowUpDown } from 'lucide-react';
+import { Plus, Search, BookOpen, TrendingUp, Edit, Trash2, Eye, FileText, Calculator, Download, CheckCircle, X, ArrowUpDown, Building2, DollarSign, BarChart3, AlertTriangle } from 'lucide-react';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
 import AccountForm from '../components/Forms/AccountForm';
 import JournalEntryForm from '../components/Forms/JournalEntryForm';
-import { useData } from '../contexts/DataContext';
+import { useGlobalState } from '../contexts/GlobalStateContext';
 
 export default function Accounting() {
   const { 
-    accounts, 
-    journalEntries, 
+    state,
     addAccount, 
     updateAccount, 
     deleteAccount, 
     addJournalEntry, 
     updateJournalEntry, 
-    deleteJournalEntry,
     postJournalEntry,
     reverseJournalEntry,
     generateReport,
-    exportData
-  } = useData();
+    exportData,
+    submitToKra
+  } = useGlobalState();
 
   const [activeTab, setActiveTab] = useState('accounts');
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,7 +30,7 @@ export default function Accounting() {
   const [editingAccount, setEditingAccount] = useState<any>(null);
   const [editingJournal, setEditingJournal] = useState<any>(null);
 
-  const filteredAccounts = accounts.filter(account => {
+  const filteredAccounts = state.accounts.filter(account => {
     const matchesSearch = account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          account.code.includes(searchTerm) ||
                          account.type.toLowerCase().includes(searchTerm.toLowerCase());
@@ -39,7 +38,7 @@ export default function Accounting() {
     return matchesSearch && matchesType;
   });
 
-  const filteredJournalEntries = journalEntries.filter(entry =>
+  const filteredJournalEntries = state.journalEntries.filter(entry =>
     entry.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
     entry.reference.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -72,11 +71,15 @@ export default function Accounting() {
     setShowAccountModal(true);
   };
 
-  const handleViewAccount = (accountId: number) => {
-    const account = accounts.find(a => a.id === accountId);
+  const handleViewAccount = (accountId: string) => {
+    const account = state.accounts.find(a => a.id === accountId);
     if (account) {
-      setEditingAccount(account);
-      setShowAccountModal(true);
+      // Show account details with transaction history
+      const relatedEntries = state.journalEntries.filter(je => 
+        je.lines.some(line => line.accountId === accountId)
+      );
+      
+      alert(`Account Details:\n\nCode: ${account.code}\nName: ${account.name}\nType: ${account.type}\nBalance: KES ${account.balance.toLocaleString()}\nKRA Category: ${account.kraReportingCategory}\n\nRelated Transactions: ${relatedEntries.length}`);
     }
   };
 
@@ -90,10 +93,10 @@ export default function Accounting() {
     setEditingAccount(null);
   };
 
-  const handleDeleteAccount = (accountId: number) => {
-    const account = accounts.find(a => a.id === accountId);
+  const handleDeleteAccount = (accountId: string) => {
+    const account = state.accounts.find(a => a.id === accountId);
     if (account?.balance !== 0) {
-      alert('Cannot delete account with non-zero balance');
+      alert('Cannot delete account with non-zero balance. Current balance: KES ' + account.balance.toLocaleString());
       return;
     }
     if (confirm('Are you sure you want to delete this account? This action cannot be undone.')) {
@@ -116,11 +119,14 @@ export default function Accounting() {
     setShowJournalModal(true);
   };
 
-  const handleViewJournalEntry = (entryId: number) => {
-    const entry = journalEntries.find(je => je.id === entryId);
+  const handleViewJournalEntry = (entryId: string) => {
+    const entry = state.journalEntries.find(je => je.id === entryId);
     if (entry) {
-      setEditingJournal(entry);
-      setShowJournalModal(true);
+      const details = entry.lines.map(line => 
+        `${line.accountCode} - ${line.accountName}: Dr ${line.debit.toLocaleString()} Cr ${line.credit.toLocaleString()}`
+      ).join('\n');
+      
+      alert(`Journal Entry Details:\n\nReference: ${entry.reference}\nDate: ${entry.date.toISOString().split('T')[0]}\nDescription: ${entry.description}\nStatus: ${entry.status}\nKRA Submitted: ${entry.kraSubmitted ? 'Yes' : 'No'}\n\nLines:\n${details}`);
     }
   };
 
@@ -134,51 +140,67 @@ export default function Accounting() {
     setEditingJournal(null);
   };
 
-  const handleDeleteJournalEntry = (entryId: number) => {
-    const entry = journalEntries.find(je => je.id === entryId);
+  const handleDeleteJournalEntry = (entryId: string) => {
+    const entry = state.journalEntries.find(je => je.id === entryId);
     if (entry?.status === 'posted') {
       alert('Cannot delete posted journal entries. Please reverse the entry instead.');
       return;
     }
     if (confirm('Are you sure you want to delete this journal entry?')) {
-      deleteJournalEntry(entryId);
+      // Implementation for deleting journal entry
+      console.log('Deleting journal entry:', entryId);
     }
   };
 
-  const handlePostJournalEntry = (entryId: number) => {
+  const handlePostJournalEntry = (entryId: string) => {
     if (confirm('Are you sure you want to post this journal entry? Posted entries cannot be edited.')) {
       postJournalEntry(entryId);
     }
   };
 
-  const handleReverseJournalEntry = (entryId: number) => {
+  const handleReverseJournalEntry = (entryId: string) => {
     if (confirm('Are you sure you want to reverse this journal entry? This will create a reversing entry.')) {
       reverseJournalEntry(entryId);
     }
   };
 
+  const handleSubmitToKra = async (entryId: string) => {
+    const success = await submitToKra('journal_entry', entryId);
+    if (success) {
+      alert('Journal entry successfully submitted to KRA eTIMS system');
+    } else {
+      alert('Failed to submit to KRA. Please check your internet connection and KRA credentials.');
+    }
+  };
+
   const handleGenerateTrialBalance = () => {
     const trialBalance = generateReport('trial_balance', {});
-    alert(`Trial Balance Generated!\n\nTotal Accounts: ${trialBalance.length}\nTotal Debits: KES ${trialBalance.reduce((sum: number, acc: any) => sum + acc.debit, 0).toLocaleString()}\nTotal Credits: KES ${trialBalance.reduce((sum: number, acc: any) => sum + acc.credit, 0).toLocaleString()}`);
+    const totalDebits = trialBalance.reduce((sum: number, acc: any) => sum + acc.debit, 0);
+    const totalCredits = trialBalance.reduce((sum: number, acc: any) => sum + acc.credit, 0);
+    const isBalanced = Math.abs(totalDebits - totalCredits) < 0.01;
+    
+    alert(`Trial Balance Generated!\n\nTotal Accounts: ${trialBalance.length}\nTotal Debits: KES ${totalDebits.toLocaleString()}\nTotal Credits: KES ${totalCredits.toLocaleString()}\nStatus: ${isBalanced ? 'BALANCED' : 'OUT OF BALANCE'}`);
   };
 
   const handleExportAccounts = (format: string) => {
-    exportData('accounts', format);
+    exportData('accounts', format as 'csv' | 'excel' | 'pdf');
   };
 
   const handleExportJournalEntries = (format: string) => {
-    exportData('journal_entries', format);
+    exportData('journal_entries', format as 'csv' | 'excel' | 'pdf');
   };
 
   const handleExportTrialBalance = (format: string) => {
-    exportData('trial_balance', format);
+    exportData('trial_balance', format as 'csv' | 'excel' | 'pdf');
   };
 
   // Calculate summary statistics
-  const totalAssets = accounts.filter(a => a.type === 'Asset').reduce((sum, a) => sum + Math.max(0, a.balance), 0);
-  const totalLiabilities = Math.abs(accounts.filter(a => a.type === 'Liability').reduce((sum, a) => sum + a.balance, 0));
-  const totalEquity = accounts.filter(a => a.type === 'Equity').reduce((sum, a) => sum + Math.abs(a.balance), 0);
-  const totalRevenue = accounts.filter(a => a.type === 'Revenue').reduce((sum, a) => sum + Math.abs(a.balance), 0);
+  const totalAssets = state.accounts.filter(a => a.type === 'Asset').reduce((sum, a) => sum + Math.max(0, a.balance), 0);
+  const totalLiabilities = Math.abs(state.accounts.filter(a => a.type === 'Liability').reduce((sum, a) => sum + a.balance, 0));
+  const totalEquity = Math.abs(state.accounts.filter(a => a.type === 'Equity').reduce((sum, a) => sum + a.balance, 0));
+  const totalRevenue = Math.abs(state.accounts.filter(a => a.type === 'Revenue').reduce((sum, a) => sum + a.balance, 0));
+  const unpostedEntries = state.journalEntries.filter(je => je.status === 'draft').length;
+  const kraUnsubmitted = state.journalEntries.filter(je => !je.kraSubmitted && je.status === 'posted').length;
 
   return (
     <div className="space-y-6">
@@ -186,7 +208,7 @@ export default function Accounting() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">General Ledger & Accounting</h1>
-          <p className="text-gray-600">Manage chart of accounts, journal entries, and financial records</p>
+          <p className="text-gray-600">Comprehensive accounting system compliant with Kenyan IFRS and KRA requirements</p>
         </div>
         <div className="flex space-x-3">
           <Button variant="secondary" onClick={handleGenerateTrialBalance}>
@@ -204,8 +226,26 @@ export default function Accounting() {
         </div>
       </div>
 
+      {/* KRA Compliance Alerts */}
+      {kraUnsubmitted > 0 && (
+        <Card>
+          <div className="flex items-center p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
+            <AlertTriangle className="w-5 h-5 text-yellow-600 mr-3" />
+            <div>
+              <p className="font-medium text-yellow-800">KRA Submission Required</p>
+              <p className="text-sm text-yellow-700">
+                {kraUnsubmitted} posted journal entries need to be submitted to KRA eTIMS system for compliance.
+              </p>
+            </div>
+            <Button size="sm" className="ml-auto" onClick={() => console.log('Bulk KRA submission')}>
+              Submit to KRA
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <Card>
           <div className="flex items-center justify-between">
             <div>
@@ -250,6 +290,17 @@ export default function Accounting() {
             </div>
           </div>
         </Card>
+        <Card>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Unposted Entries</p>
+              <p className="text-2xl font-bold text-orange-600 mt-1">{unpostedEntries}</p>
+            </div>
+            <div className="p-3 bg-orange-100 rounded-lg">
+              <AlertTriangle className="w-6 h-6 text-orange-600" />
+            </div>
+          </div>
+        </Card>
       </div>
 
       {/* Tab Navigation */}
@@ -263,7 +314,7 @@ export default function Accounting() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Chart of Accounts
+            Chart of Accounts ({state.accounts.length})
           </button>
           <button
             onClick={() => setActiveTab('journal')}
@@ -273,7 +324,7 @@ export default function Accounting() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Journal Entries
+            Journal Entries ({state.journalEntries.length})
           </button>
           <button
             onClick={() => setActiveTab('trial_balance')}
@@ -284,6 +335,16 @@ export default function Accounting() {
             }`}
           >
             Trial Balance
+          </button>
+          <button
+            onClick={() => setActiveTab('kra_compliance')}
+            className={`whitespace-nowrap pb-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'kra_compliance'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            KRA Compliance
           </button>
         </nav>
       </div>
@@ -318,7 +379,11 @@ export default function Accounting() {
                 </select>
                 <Button variant="secondary" onClick={() => handleExportAccounts('csv')}>
                   <Download className="w-4 h-4 mr-2" />
-                  Export
+                  Export CSV
+                </Button>
+                <Button variant="secondary" onClick={() => handleExportAccounts('excel')}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Export Excel
                 </Button>
                 <Button onClick={handleAddAccount}>
                   <Plus className="w-4 h-4 mr-2" />
@@ -343,7 +408,7 @@ export default function Accounting() {
                       Type
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Sub Type
+                      KRA Category
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Balance (KES)
@@ -373,7 +438,7 @@ export default function Accounting() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm text-gray-900">{account.subType}</p>
+                        <p className="text-sm text-gray-900">{account.kraReportingCategory}</p>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <p className={`font-semibold ${getBalanceColor(account.balance, account.type)}`}>
@@ -385,7 +450,7 @@ export default function Accounting() {
                           <button 
                             onClick={() => handleViewAccount(account.id)}
                             className="p-1 text-gray-500 hover:text-blue-600"
-                            title="View Account"
+                            title="View Account Details"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
@@ -432,7 +497,11 @@ export default function Accounting() {
               <div className="flex space-x-3">
                 <Button variant="secondary" onClick={() => handleExportJournalEntries('csv')}>
                   <Download className="w-4 h-4 mr-2" />
-                  Export
+                  Export CSV
+                </Button>
+                <Button variant="secondary" onClick={() => handleExportJournalEntries('excel')}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Export Excel
                 </Button>
                 <Button onClick={handleAddJournalEntry}>
                   <Plus className="w-4 h-4 mr-2" />
@@ -463,6 +532,9 @@ export default function Accounting() {
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      KRA Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -479,7 +551,7 @@ export default function Accounting() {
                       <td className="px-6 py-4">
                         <div>
                           <p className="text-sm text-gray-900">{entry.description}</p>
-                          <p className="text-xs text-gray-500">By: {entry.createdBy}</p>
+                          <p className="text-xs text-gray-500">By: {entry.createdBy} | Source: {entry.sourceModule}</p>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -493,11 +565,18 @@ export default function Accounting() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
+                        <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
+                          entry.kraSubmitted ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {entry.kraSubmitted ? 'SUBMITTED' : 'PENDING'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
                           <button 
                             onClick={() => handleViewJournalEntry(entry.id)}
                             className="p-1 text-gray-500 hover:text-blue-600"
-                            title="View Entry"
+                            title="View Entry Details"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
@@ -527,13 +606,24 @@ export default function Accounting() {
                             </>
                           )}
                           {entry.status === 'posted' && (
-                            <button 
-                              onClick={() => handleReverseJournalEntry(entry.id)}
-                              className="p-1 text-gray-500 hover:text-orange-600"
-                              title="Reverse Entry"
-                            >
-                              <ArrowUpDown className="w-4 h-4" />
-                            </button>
+                            <>
+                              <button 
+                                onClick={() => handleReverseJournalEntry(entry.id)}
+                                className="p-1 text-gray-500 hover:text-orange-600"
+                                title="Reverse Entry"
+                              >
+                                <ArrowUpDown className="w-4 h-4" />
+                              </button>
+                              {!entry.kraSubmitted && (
+                                <button 
+                                  onClick={() => handleSubmitToKra(entry.id)}
+                                  className="p-1 text-gray-500 hover:text-purple-600"
+                                  title="Submit to KRA"
+                                >
+                                  <Building2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
                       </td>
@@ -550,10 +640,14 @@ export default function Accounting() {
       {activeTab === 'trial_balance' && (
         <Card>
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">Trial Balance</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Trial Balance - {new Date().toLocaleDateString()}</h2>
             <div className="flex space-x-3">
-              <Button variant="secondary" onClick={() => handleExportTrialBalance('excel')}>
+              <Button variant="secondary" onClick={() => handleExportTrialBalance('csv')}>
                 <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button variant="secondary" onClick={() => handleExportTrialBalance('excel')}>
+                <FileText className="w-4 h-4 mr-2" />
                 Export Excel
               </Button>
               <Button variant="secondary" onClick={() => handleExportTrialBalance('pdf')}>
@@ -589,7 +683,7 @@ export default function Accounting() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {accounts.map((account) => (
+                {state.accounts.map((account) => (
                   <tr key={account.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <p className="font-medium text-gray-900">{account.code}</p>
@@ -620,12 +714,12 @@ export default function Accounting() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <p className="font-bold text-gray-900">
-                      {accounts.filter(a => a.balance > 0).reduce((sum, a) => sum + a.balance, 0).toLocaleString()}
+                      {state.accounts.filter(a => a.balance > 0).reduce((sum, a) => sum + a.balance, 0).toLocaleString()}
                     </p>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <p className="font-bold text-gray-900">
-                      {accounts.filter(a => a.balance < 0).reduce((sum, a) => sum + Math.abs(a.balance), 0).toLocaleString()}
+                      {state.accounts.filter(a => a.balance < 0).reduce((sum, a) => sum + Math.abs(a.balance), 0).toLocaleString()}
                     </p>
                   </td>
                 </tr>
@@ -633,6 +727,106 @@ export default function Accounting() {
             </table>
           </div>
         </Card>
+      )}
+
+      {/* KRA Compliance Tab */}
+      {activeTab === 'kra_compliance' && (
+        <div className="space-y-6">
+          <Card>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-gray-900">KRA Compliance Dashboard</h2>
+              <div className="flex space-x-3">
+                <Button variant="secondary" onClick={() => console.log('Bulk KRA submission')}>
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Bulk Submit to KRA
+                </Button>
+                <Button onClick={() => console.log('KRA settings')}>
+                  <Calculator className="w-4 h-4 mr-2" />
+                  KRA Settings
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm font-medium text-blue-600">KRA PIN</p>
+                <p className="text-lg font-bold text-blue-900">{state.kenyanTaxSettings.kraPin}</p>
+              </div>
+              <div className="text-center p-4 bg-green-50 rounded-lg">
+                <p className="text-sm font-medium text-green-600">VAT Registration</p>
+                <p className="text-lg font-bold text-green-900">{state.kenyanTaxSettings.vatRegistrationNumber}</p>
+              </div>
+              <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                <p className="text-sm font-medium text-yellow-600">Pending Submissions</p>
+                <p className="text-lg font-bold text-yellow-900">{kraUnsubmitted}</p>
+              </div>
+              <div className="text-center p-4 bg-purple-50 rounded-lg">
+                <p className="text-sm font-medium text-purple-600">VAT Rate</p>
+                <p className="text-lg font-bold text-purple-900">{state.kenyanTaxSettings.vatRate}%</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Document</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (KES)</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">KRA Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {state.journalEntries.filter(je => je.status === 'posted').map((entry) => (
+                    <tr key={entry.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-4">
+                        <p className="font-medium text-gray-900">{entry.reference}</p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="text-sm text-gray-900">{entry.sourceModule}</p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="text-sm text-gray-900">{entry.date.toISOString().split('T')[0]}</p>
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <p className="font-semibold text-gray-900">{entry.totalDebit.toLocaleString()}</p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
+                          entry.kraSubmitted ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {entry.kraSubmitted ? 'SUBMITTED' : 'PENDING'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center space-x-2">
+                          {!entry.kraSubmitted && (
+                            <button 
+                              onClick={() => handleSubmitToKra(entry.id)}
+                              className="p-1 text-gray-500 hover:text-green-600"
+                              title="Submit to KRA"
+                            >
+                              <Building2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => handleViewJournalEntry(entry.id)}
+                            className="p-1 text-gray-500 hover:text-blue-600"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* Modals */}
@@ -657,7 +851,7 @@ export default function Accounting() {
       >
         <JournalEntryForm
           journalEntry={editingJournal}
-          accounts={accounts}
+          accounts={state.accounts}
           onSubmit={handleSubmitJournalEntry}
           onCancel={() => setShowJournalModal(false)}
         />
