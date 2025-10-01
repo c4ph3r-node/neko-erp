@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, Mail, Phone, MapPin, Edit, Trash2, Building } from 'lucide-react';
+import { Plus, Search, Mail, Phone, MapPin, CreditCard as Edit, Trash2, Building } from 'lucide-react';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';

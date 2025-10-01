@@ -1,36 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { 
-  Home, 
-  Users, 
-  FileText, 
-  BookOpen, 
-  BarChart3, 
-  Settings,
-  X,
-  Building2,
-  Package,
-  CreditCard,
-  FolderOpen,
-  Building,
-  UserCheck,
-  Wrench,
-  Cog,
-  ShoppingCart,
-  Zap,
-  Calculator,
-  DollarSign,
-  TrendingUp,
-  Shield,
-  Target,
-  Factory,
-  Truck,
-  Users2,
-  Briefcase,
-  PieChart,
-  ChevronDown,
-  ChevronRight
-} from 'lucide-react';
+import { Home, Users, FileText, BookOpen, BarChart3, Settings, X, Building2, Package, CreditCard, FolderOpen, Building, UserCheck, Wrench, Cog, ShoppingCart, Zap, Calculator, DollarSign, TrendingUp, Shield, Target, Factory, Truck, Users as Users2, Briefcase, PieChart, ChevronDown, ChevronRight } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 import { useState } from 'react';
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, Clock, DollarSign, Users, Calendar, BarChart3, Play, Pause, Edit, Eye, Trash2, CheckCircle, X } from 'lucide-react';
+import { Plus, Search, Clock, DollarSign, Users, Calendar, BarChart3, Play, Pause, CreditCard as Edit, Eye, Trash2, CheckCircle, X } from 'lucide-react';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';

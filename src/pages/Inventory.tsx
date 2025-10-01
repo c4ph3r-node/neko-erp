@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, Package, AlertTriangle, TrendingDown, BarChart3, Edit, Eye } from 'lucide-react';
+import { Plus, Search, Package, AlertTriangle, TrendingDown, BarChart3, CreditCard as Edit, Eye } from 'lucide-react';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
