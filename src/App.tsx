@@ -41,13 +41,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
 
   return (
     <Routes>
-      <Route path="/landing" element={user ? <Navigate to="/" /> : <LandingPage />} />
-      <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
-      <Route path="/" element={
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
+      <Route path="/dashboard" element={
         <ProtectedRoute>
           <Layout>
             <Dashboard />

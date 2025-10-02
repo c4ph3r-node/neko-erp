@@ -128,10 +128,34 @@ export default function LandingPage() {
   };
 
   const handleSignupSubmit = (signupData: any) => {
-    console.log('Creating new tenant account:', signupData);
-    // This would create a new tenant account and redirect to the app
+    // Create new tenant account with trial tracking
+    const tenantData = {
+      ...signupData,
+      id: `tenant_${Date.now()}`,
+      subdomain: signupData.companyName.toLowerCase().replace(/[^a-z0-9]/g, ''),
+      status: 'trial',
+      plan: 'professional',
+      trialStartDate: new Date(),
+      trialEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      createdAt: new Date(),
+      isActive: true
+    };
+    
+    // Store tenant data in localStorage for demo purposes
+    localStorage.setItem('tenantData', JSON.stringify(tenantData));
+    localStorage.setItem('user', JSON.stringify({
+      id: Date.now().toString(),
+      email: signupData.email,
+      firstName: signupData.firstName,
+      lastName: signupData.lastName,
+      role: 'admin',
+      tenantId: tenantData.id,
+      permissions: ['all']
+    }));
+    
     setShowSignupModal(false);
-    alert('Account created successfully! Redirecting to your dashboard...');
+    alert('Account created successfully! Welcome to your 30-day free trial!');
+    window.location.href = '/dashboard';
   };
 
   const handleDemoSubmit = (demoData: any) => {

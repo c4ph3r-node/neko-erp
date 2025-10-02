@@ -172,75 +172,128 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (user) {
-      // Mock tenant data - in real app, this would be fetched from API
-      const mockTenant: Tenant = {
-        id: user.tenantId,
-        name: 'Acme Corporation Kenya Ltd',
-        subdomain: 'acme-kenya',
-        plan: 'professional',
-        status: 'trial',
-        trialStartDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-        trialEndDate: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000), // 25 days remaining
-        settings: {
-          currency: 'KES',
-          dateFormat: 'dd/MM/yyyy',
-          language: 'en',
-          timezone: 'Africa/Nairobi',
-          fiscalYearStart: '01/01',
-          industry: 'Technology & Software',
-          businessType: 'Private Limited Company',
-          kraPin: 'P051234567A',
-          vatNumber: 'VAT001234567',
-          address: {
-            street: 'Westlands Business Park, Ring Road',
-            city: 'Nairobi',
-            county: 'Nairobi',
-            postalCode: '00100',
-            country: 'Kenya'
-          },
-          contact: {
-            phone: '+254 722 123 456',
-            email: 'info@acme.co.ke',
-            website: 'https://acme.co.ke'
-          },
-          features: ['accounting', 'invoicing', 'inventory', 'payroll', 'projects'],
-          integrations: {
-            kra: true,
-            mpesa: true,
-            banks: ['KCB', 'Equity Bank']
-          }
-        },
-        billing: {
-          plan: 'professional',
-          monthlyAmount: 7999,
-          billingCycle: 'monthly',
-          nextBillingDate: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000),
-          invoices: [
-            {
-              id: 'INV-2025-001',
-              amount: 7999,
-              currency: 'KES',
-              status: 'paid',
-              issueDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-              dueDate: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000),
-              paidDate: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000)
-            }
-          ]
-        },
-        usage: {
-          activeUsers: 8,
-          maxUsers: 15,
-          storageUsed: 2500, // 2.5 GB
-          storageLimit: 51200, // 50 GB
-          apiCalls: 15420,
-          documentsGenerated: 342,
-          lastActivity: new Date()
-        },
-        isActive: true,
-        createdAt: new Date(Date.now() - 35 * 24 * 60 * 60 * 1000)
-      };
+      // Check for stored tenant data from signup process
+      const storedTenantData = localStorage.getItem('tenantData');
       
-      setTenant(mockTenant);
+      if (storedTenantData) {
+        const tenantData = JSON.parse(storedTenantData);
+        const tenant: Tenant = {
+          id: tenantData.id,
+          name: tenantData.companyName,
+          subdomain: tenantData.subdomain,
+          plan: tenantData.selectedPlan || 'professional',
+          status: tenantData.status || 'trial',
+          trialStartDate: new Date(tenantData.trialStartDate),
+          trialEndDate: new Date(tenantData.trialEndDate),
+          settings: {
+            currency: 'KES',
+            dateFormat: 'dd/MM/yyyy',
+            language: tenantData.language || 'en',
+            timezone: tenantData.timezone || 'Africa/Nairobi',
+            fiscalYearStart: '01/01',
+            industry: tenantData.industry,
+            businessType: tenantData.businessType,
+            kraPin: tenantData.kraPin,
+            vatNumber: tenantData.vatNumber,
+            address: {
+              street: tenantData.street,
+              city: tenantData.city,
+              county: tenantData.county,
+              postalCode: tenantData.postalCode,
+              country: 'Kenya'
+            },
+            contact: {
+              phone: tenantData.phone,
+              email: tenantData.email,
+              website: tenantData.website || ''
+            },
+            features: ['accounting', 'invoicing', 'inventory', 'payroll', 'projects'],
+            integrations: {
+              kra: true,
+              mpesa: false,
+              banks: []
+            }
+          },
+          billing: {
+            plan: tenantData.selectedPlan || 'professional',
+            monthlyAmount: tenantData.selectedPlan === 'starter' ? 2999 : tenantData.selectedPlan === 'enterprise' ? 19999 : 7999,
+            billingCycle: 'monthly',
+            nextBillingDate: new Date(tenantData.trialEndDate),
+            invoices: []
+          },
+          usage: {
+            activeUsers: 1,
+            maxUsers: tenantData.selectedPlan === 'starter' ? 3 : tenantData.selectedPlan === 'enterprise' ? 999 : 15,
+            storageUsed: 0,
+            storageLimit: tenantData.selectedPlan === 'starter' ? 5120 : tenantData.selectedPlan === 'enterprise' ? 999999 : 51200,
+            apiCalls: 0,
+            documentsGenerated: 0,
+            lastActivity: new Date()
+          },
+          isActive: true,
+          createdAt: new Date(tenantData.createdAt)
+        };
+        setTenant(tenant);
+      } else {
+        // Fallback mock tenant for demo login
+        const mockTenant: Tenant = {
+          id: user.tenantId,
+          name: 'Demo Company Kenya Ltd',
+          subdomain: 'demo-kenya',
+          plan: 'professional',
+          status: 'trial',
+          trialStartDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+          trialEndDate: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000),
+          settings: {
+            currency: 'KES',
+            dateFormat: 'dd/MM/yyyy',
+            language: 'en',
+            timezone: 'Africa/Nairobi',
+            fiscalYearStart: '01/01',
+            industry: 'Technology & Software',
+            businessType: 'Private Limited Company',
+            kraPin: 'P051234567A',
+            vatNumber: 'VAT001234567',
+            address: {
+              street: 'Westlands Business Park, Ring Road',
+              city: 'Nairobi',
+              county: 'Nairobi',
+              postalCode: '00100',
+              country: 'Kenya'
+            },
+            contact: {
+              phone: '+254 722 123 456',
+              email: 'info@demo.co.ke',
+              website: 'https://demo.co.ke'
+            },
+            features: ['accounting', 'invoicing', 'inventory', 'payroll', 'projects'],
+            integrations: {
+              kra: true,
+              mpesa: true,
+              banks: ['KCB', 'Equity Bank']
+            }
+          },
+          billing: {
+            plan: 'professional',
+            monthlyAmount: 7999,
+            billingCycle: 'monthly',
+            nextBillingDate: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000),
+            invoices: []
+          },
+          usage: {
+            activeUsers: 1,
+            maxUsers: 15,
+            storageUsed: 250,
+            storageLimit: 51200,
+            apiCalls: 1542,
+            documentsGenerated: 34,
+            lastActivity: new Date()
+          },
+          isActive: true,
+          createdAt: new Date(Date.now() - 35 * 24 * 60 * 60 * 1000)
+        };
+        setTenant(mockTenant);
+      }
     } else {
       setTenant(null);
     }

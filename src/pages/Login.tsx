@@ -85,7 +85,7 @@ export default function Login() {
             <div className="mt-3 pt-3 border-t border-blue-200">
               <p className="text-sm text-blue-800 font-medium">New to NekoERP?</p>
               <button 
-                onClick={() => window.location.href = '/landing'}
+                onClick={() => window.location.href = '/'}
                 className="text-sm text-blue-700 hover:text-blue-900 underline"
               >
                 Start your free trial →
