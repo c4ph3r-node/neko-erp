@@ -3,7 +3,7 @@ import { Plus, Search, Mail, Phone, MapPin, CreditCard as Edit, Trash2, Building
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
-import VendorForm from '../components/Forms/VendorForm';
+// import VendorForm from '../components/Forms/VendorForm';
 
 const mockVendors = [
   {
@@ -244,11 +244,11 @@ export default function Vendors() {
         title={editingVendor ? 'Edit Vendor' : 'Add New Vendor'}
         size="lg"
       >
-        <VendorForm
+        {/* <VendorForm
           vendor={editingVendor}
           onSubmit={handleSubmitVendor}
           onCancel={() => setShowModal(false)}
-        />
+        /> */}
       </Modal>
     </div>
   );
