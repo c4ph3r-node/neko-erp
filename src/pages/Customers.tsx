@@ -215,11 +215,11 @@ export default function Customers() {
         title={editingCustomer ? 'Edit Customer' : 'Add New Customer'}
         size="lg"
       >
-        <CustomerForm
+        {/* <CustomerForm
           customer={editingCustomer}
           onSubmit={handleSubmitCustomer}
           onCancel={() => setShowModal(false)}
-        />
+        /> */}
       </Modal>
     </div>
   );
