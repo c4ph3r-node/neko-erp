@@ -7,7 +7,7 @@ import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
-import Vendors from './pages/Vendors';
+// import Vendors from './pages/Vendors';
 // import Invoices from './pages/Invoices';
 import Inventory from './pages/Inventory';
 import Banking from './pages/Banking';
@@ -61,13 +61,13 @@ function AppRoutes() {
           </Layout>
         </ProtectedRoute>
       } />
-      <Route path="/vendors" element={
+      {/* <Route path="/vendors" element={
         <ProtectedRoute>
           <Layout>
             <Vendors />
           </Layout>
         </ProtectedRoute>
-      } />
+      } /> */}
       {/* <Route path="/invoices" element={
         <ProtectedRoute>
           <Layout>
