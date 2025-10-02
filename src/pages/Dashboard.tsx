@@ -10,14 +10,15 @@ import {
   ArrowDownRight,
   Building2,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  BookOpen
 } from 'lucide-react';
 import Card from '../components/UI/Card';
-import { useData } from '../contexts/DataContext';
+import { useGlobalState } from '../contexts/GlobalStateContext';
 import { useTenant } from '../contexts/TenantContext';
 
 export default function Dashboard() {
-  const { state } = useData();
+  const { state } = useGlobalState();
   const { tenant, checkTrialStatus } = useTenant();
 
   const trialStatus = checkTrialStatus();
