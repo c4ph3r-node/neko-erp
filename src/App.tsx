@@ -8,7 +8,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
 import Vendors from './pages/Vendors';
-import Invoices from './pages/Invoices';
+// import Invoices from './pages/Invoices';
 import Inventory from './pages/Inventory';
 import Banking from './pages/Banking';
 import Projects from './pages/Projects';
@@ -68,13 +68,13 @@ function AppRoutes() {
           </Layout>
         </ProtectedRoute>
       } />
-      <Route path="/invoices" element={
+      {/* <Route path="/invoices" element={
         <ProtectedRoute>
           <Layout>
             <Invoices />
           </Layout>
         </ProtectedRoute>
-      } />
+      } /> */}
       <Route path="/inventory" element={
         <ProtectedRoute>
           <Layout>
