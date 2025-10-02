@@ -82,6 +82,15 @@ export default function Login() {
             <p className="text-sm text-blue-800 font-medium">Demo Credentials:</p>
             <p className="text-sm text-blue-700">Email: admin@example.com</p>
             <p className="text-sm text-blue-700">Password: password</p>
+            <div className="mt-3 pt-3 border-t border-blue-200">
+              <p className="text-sm text-blue-800 font-medium">New to NekoERP?</p>
+              <button 
+                onClick={() => window.location.href = '/landing'}
+                className="text-sm text-blue-700 hover:text-blue-900 underline"
+              >
+                Start your free trial →
+              </button>
+            </div>
           </div>
         </div>
       </div>

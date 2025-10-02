@@ -618,45 +618,73 @@ export default function Settings() {
               </div>
 
               <div className="space-y-6">
-                <div className="bg-blue-50 p-6 rounded-lg">
+                {tenant?.status === 'trial' ? (
+                  <div className="bg-yellow-50 p-6 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-yellow-900">Free Trial</h3>
+                        <p className="text-yellow-700">Professional Plan Features</p>
+                        <p className="text-sm text-yellow-600 mt-1">
+                          Trial expires: {tenant.trialEndDate?.toLocaleDateString()} 
+                          ({checkTrialStatus().daysRemaining} days remaining)
+                        </p>
+                      </div>
+                      <Button onClick={() => console.log('Upgrading plan')}>
+                        Upgrade Now
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-blue-50 p-6 rounded-lg">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-lg font-semibold text-blue-900">Professional Plan</h3>
-                      <p className="text-blue-700">$99/month • Up to 25 users</p>
-                      <p className="text-sm text-blue-600 mt-1">Next billing date: February 15, 2025</p>
+                        <h3 className="text-lg font-semibold text-blue-900">{tenant?.plan} Plan</h3>
+                        <p className="text-blue-700">KES {tenant?.billing.monthlyAmount.toLocaleString()}/month • Up to {tenant?.usage.maxUsers} users</p>
+                        <p className="text-sm text-blue-600 mt-1">
+                          Next billing date: {tenant?.billing.nextBillingDate?.toLocaleDateString()}
+                        </p>
                     </div>
                     <Button variant="secondary" onClick={() => console.log('Managing subscription')}>
                       Manage Plan
                     </Button>
                   </div>
-                </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="text-center p-6 border border-gray-200 rounded-lg">
                     <h4 className="font-semibold text-gray-900">Starter</h4>
-                    <p className="text-2xl font-bold text-gray-900 mt-2">$29</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-2">KES 2,999</p>
                     <p className="text-gray-600">per month</p>
-                    <p className="text-sm text-gray-500 mt-2">Up to 5 users</p>
+                    <p className="text-sm text-gray-500 mt-2">Up to 3 users</p>
                     <Button variant="secondary" size="sm" className="mt-4" onClick={() => console.log('Downgrading to Starter')}>
-                      Downgrade
+                      {tenant?.plan === 'starter' ? 'Current Plan' : 'Downgrade'}
                     </Button>
                   </div>
-                  <div className="text-center p-6 border-2 border-blue-500 rounded-lg bg-blue-50">
+                  <div className={`text-center p-6 border-2 rounded-lg ${
+                    tenant?.plan === 'professional' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                  }`}>
                     <h4 className="font-semibold text-blue-900">Professional</h4>
-                    <p className="text-2xl font-bold text-blue-900 mt-2">$99</p>
+                    <p className="text-2xl font-bold text-blue-900 mt-2">KES 7,999</p>
                     <p className="text-blue-700">per month</p>
-                    <p className="text-sm text-blue-600 mt-2">Up to 25 users</p>
-                    <div className="mt-4 px-3 py-1 bg-blue-600 text-white text-xs rounded-full">
-                      Current Plan
-                    </div>
+                    <p className="text-sm text-blue-600 mt-2">Up to 15 users</p>
+                    {tenant?.plan === 'professional' ? (
+                      <div className="mt-4 px-3 py-1 bg-blue-600 text-white text-xs rounded-full">
+                        Current Plan
+                      </div>
+                    ) : (
+                      <Button size="sm" className="mt-4" onClick={() => upgradePlan('professional')}>
+                        {tenant?.plan === 'starter' ? 'Upgrade' : 'Downgrade'}
+                      </Button>
+                    )}
                   </div>
                   <div className="text-center p-6 border border-gray-200 rounded-lg">
                     <h4 className="font-semibold text-gray-900">Enterprise</h4>
-                    <p className="text-2xl font-bold text-gray-900 mt-2">$299</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-2">KES 19,999</p>
                     <p className="text-gray-600">per month</p>
                     <p className="text-sm text-gray-500 mt-2">Unlimited users</p>
-                    <Button size="sm" className="mt-4" onClick={() => console.log('Upgrading to Enterprise')}>
-                      Upgrade
+                    <Button size="sm" className="mt-4" onClick={() => upgradePlan('enterprise')}>
+                      {tenant?.plan === 'enterprise' ? 'Current Plan' : 'Upgrade'}
                     </Button>
                   </div>
                 </div>
@@ -664,30 +692,26 @@ export default function Settings() {
                 <div className="border-t pt-6">
                   <h3 className="font-medium text-gray-900 mb-4">Billing History</h3>
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900">January 2025 - Professional Plan</p>
-                        <p className="text-sm text-gray-600">Paid on January 15, 2025</p>
+                    {tenant?.billing.invoices.map((invoice) => (
+                      <div key={invoice.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {invoice.issueDate.toLocaleDateString()} - {tenant.plan} Plan
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {invoice.status === 'paid' ? 'Paid' : 'Pending'} on {invoice.paidDate?.toLocaleDateString() || 'Pending'}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-gray-900">
+                            {invoice.currency} {invoice.amount.toLocaleString()}
+                          </p>
+                          <Button variant="secondary" size="sm" onClick={() => console.log('Downloading invoice', invoice.id)}>
+                            Download
+                          </Button>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">$99.00</p>
-                        <Button variant="secondary" size="sm" onClick={() => console.log('Downloading invoice')}>
-                          Download
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900">December 2024 - Professional Plan</p>
-                        <p className="text-sm text-gray-600">Paid on December 15, 2024</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">$99.00</p>
-                        <Button variant="secondary" size="sm" onClick={() => console.log('Downloading invoice')}>
-                          Download
-                        </Button>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
               </div>

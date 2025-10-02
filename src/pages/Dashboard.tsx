@@ -13,10 +13,14 @@ import {
   CheckCircle
 } from 'lucide-react';
 import Card from '../components/UI/Card';
-import { useGlobalState } from '../contexts/GlobalStateContext';
+import { useData } from '../contexts/DataContext';
+import { useTenant } from '../contexts/TenantContext';
 
 export default function Dashboard() {
-  const { state } = useGlobalState();
+  const { state } = useData();
+  const { tenant, checkTrialStatus } = useTenant();
+
+  const trialStatus = checkTrialStatus();
 
   // Calculate real metrics from actual data
   const totalRevenue = Math.abs(state.accounts.filter(a => a.type === 'Revenue').reduce((sum, a) => sum + a.balance, 0));
@@ -82,12 +86,40 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600">Welcome back! Here's your business overview for Kenya.</p>
+          <p className="text-gray-600">Welcome back to {tenant?.name}! Here's your business overview.</p>
         </div>
-        <div className="text-sm text-gray-500">
-          Last updated: {new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}
+        <div className="text-right">
+          <div className="text-sm text-gray-500">
+            Last updated: {new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}
+          </div>
+          {tenant?.status === 'trial' && (
+            <div className={`text-sm font-medium ${trialStatus.daysRemaining <= 7 ? 'text-red-600' : 'text-blue-600'}`}>
+              Trial: {trialStatus.daysRemaining} days remaining
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Trial Status Alert */}
+      {tenant?.status === 'trial' && trialStatus.daysRemaining <= 7 && (
+        <Card>
+          <div className="flex items-center p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
+            <AlertTriangle className="w-5 h-5 text-yellow-600 mr-3" />
+            <div className="flex-1">
+              <p className="font-medium text-yellow-800">Trial Ending Soon</p>
+              <p className="text-sm text-yellow-700">
+                Your free trial expires in {trialStatus.daysRemaining} days. Upgrade now to continue using all features.
+              </p>
+            </div>
+            <button 
+              onClick={() => window.location.href = '/settings'}
+              className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+            >
+              Upgrade Now
+            </button>
+          </div>
+        </Card>
+      )}
 
       {/* KRA Compliance Alert */}
       {kraCompliance.pendingSubmissions > 0 && (

@@ -2,7 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { TenantProvider } from './contexts/TenantContext';
-import { GlobalStateProvider } from './contexts/GlobalStateContext';
+import { DataProvider } from './contexts/DataContext';
+import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
@@ -44,6 +45,7 @@ function AppRoutes() {
 
   return (
     <Routes>
+      <Route path="/landing" element={user ? <Navigate to="/" /> : <LandingPage />} />
       <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
       <Route path="/" element={
         <ProtectedRoute>
@@ -208,11 +210,11 @@ function App() {
     <Router>
       <AuthProvider>
         <TenantProvider>
-          <GlobalStateProvider>
+          <DataProvider>
             <div className="min-h-screen bg-gray-50">
               <AppRoutes />
             </div>
-          </GlobalStateProvider>
+          </DataProvider>
         </TenantProvider>
       </AuthProvider>
     </Router>
