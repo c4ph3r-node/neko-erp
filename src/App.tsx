@@ -49,7 +49,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={<Navigate to="/dashboard" />} />
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
       <Route path="/dashboard" element={
         <ProtectedRoute>
