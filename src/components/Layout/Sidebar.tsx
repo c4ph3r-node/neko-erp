@@ -19,7 +19,8 @@ const moduleGroups = [
   {
     title: 'Finance & Accounting',
     items: [
-      { name: 'General Ledger', href: '/accounting', icon: BookOpen },
+      { name: 'Accounting', href: '/accounting', icon: BookOpen },
+      { name: 'General Ledger', href: '/general-ledger', icon: BookOpen },
       { name: 'Banking', href: '/banking', icon: CreditCard },
       { name: 'Cash Flow', href: '/cash-flow', icon: TrendingUp },
       { name: 'Budgeting', href: '/budgeting', icon: Target },

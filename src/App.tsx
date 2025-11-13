@@ -27,6 +27,7 @@ import Estimates from './pages/Estimates';
 import Budgeting from './pages/Budgeting';
 import CashFlow from './pages/CashFlow';
 import UserManagement from './pages/UserManagement';
+import GeneralLedger from './pages/GeneralLedger';
 import Layout from './components/Layout/Layout';
 import LoadingSpinner from './components/UI/LoadingSpinner';
 
@@ -140,6 +141,11 @@ function AppRoutes() {
           <Layout>
             <Accounting />
           </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/general-ledger" element={
+        <ProtectedRoute>
+          <GeneralLedger />
         </ProtectedRoute>
       } />
       <Route path="/reports" element={
