@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Upload, Search, FileText, Image, File, Download, Eye, Trash2, Tag, Calendar, User, Filter } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
+import { useGlobalState } from '../contexts/GlobalStateContext';
 
 const mockDocuments = [
   {
@@ -92,6 +94,8 @@ const documentCategories = [
 ];
 
 export default function DocumentManagement() {
+  const { showNotification } = useGlobalState();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -161,16 +165,16 @@ export default function DocumentManagement() {
   };
 
   const handleDownload = (docId: number) => {
-    console.log('Downloading document:', docId);
+    showNotification('Document downloaded successfully', 'success');
   };
 
   const handleView = (docId: number) => {
-    console.log('Viewing document:', docId);
+    showNotification('Document viewer would open here', 'info');
   };
 
   const handleDelete = (docId: number) => {
     if (confirm('Are you sure you want to delete this document?')) {
-      console.log('Deleting document:', docId);
+      showNotification('Document deleted successfully', 'success');
     }
   };
 

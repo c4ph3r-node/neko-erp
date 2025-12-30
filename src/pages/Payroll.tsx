@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Search, Users, DollarSign, Calendar, FileText, Download, Eye, Edit, Clock, CheckCircle, AlertTriangle, UserPlus, Calculator, Printer, Trash2, X, Upload } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
@@ -7,6 +8,7 @@ import EmployeeForm from '../components/Forms/EmployeeForm';
 import PayrollRunForm from '../components/Forms/PayrollRunForm';
 import TimesheetForm from '../components/Forms/TimesheetForm';
 import LeaveRequestForm from '../components/Forms/LeaveRequestForm';
+import { useGlobalState } from '../contexts/GlobalStateContext';
 
 const mockEmployees = [
   {
@@ -120,6 +122,8 @@ const mockAttendance = [
 ];
 
 export default function Payroll() {
+  const { formatCurrency } = useGlobalState();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('employees');
   const [searchTerm, setSearchTerm] = useState('');
   const [employees, setEmployees] = useState(mockEmployees);
@@ -130,6 +134,11 @@ export default function Payroll() {
   const [showPayrollModal, setShowPayrollModal] = useState(false);
   const [showTimesheetModal, setShowTimesheetModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showBulkImportModal, setShowBulkImportModal] = useState(false);
+  const [showPayrollCalendarModal, setShowPayrollCalendarModal] = useState(false);
+  const [showPayrollDetailsModal, setShowPayrollDetailsModal] = useState(false);
+  const [showLeaveCalendarModal, setShowLeaveCalendarModal] = useState(false);
+  const [showManualAttendanceModal, setShowManualAttendanceModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<any>(null);
   const [editingPayroll, setEditingPayroll] = useState<any>(null);
 
@@ -275,8 +284,8 @@ export default function Payroll() {
   const handleEditTimeEntry = (entryId: number) => {
     const timeEntry = timeEntries.find(entry => entry.id === entryId);
     if (timeEntry) {
-      console.log('Editing time entry:', timeEntry);
-      // Implementation for editing time entry
+      setEditingEmployee(timeEntry);
+      setShowTimesheetModal(true);
     }
   };
 
@@ -309,27 +318,32 @@ export default function Payroll() {
     }
   };
 
+  // const handleBulkApproveTimesheets = () => {
+  //   setTimeEntries(prev => prev.map(entry => 
+  //     entry.status === 'pending' ? { ...entry, status: 'approved' } : entry
+  //   ));
+  // };
+
   const handleViewLeaveRequest = (leaveId: number) => {
     const leaveRequest = leaveRequests.find(leave => leave.id === leaveId);
     if (leaveRequest) {
-      console.log('Viewing leave request:', leaveRequest);
-      // Implementation for viewing leave request details
+      setEditingEmployee(leaveRequest);
+      setShowLeaveModal(true);
     }
   };
 
   const handleGeneratePayslips = (payrollId: number) => {
-    console.log('Generating payslips for payroll run:', payrollId);
+    alert(`Generating payslips for payroll run: ${payrollId}`);
     // Implementation for payslip generation
   };
 
   const handleExportPayroll = (payrollId: number) => {
-    console.log('Exporting payroll data:', payrollId);
+    alert(`Exporting payroll data for payroll run: ${payrollId}`);
     // Implementation for payroll export
   };
 
   const handleBulkImportEmployees = () => {
-    console.log('Opening bulk import for employees');
-    // Implementation for bulk employee import
+    setShowBulkImportModal(true);
   };
 
   const handleBulkApproveTimesheets = () => {
@@ -353,11 +367,11 @@ export default function Payroll() {
           <p className="text-gray-600">Comprehensive employee management, payroll processing, and HR operations</p>
         </div>
         <div className="flex space-x-3">
-          <Button variant="secondary" onClick={() => console.log('Opening payroll reports')}>
+          <Button variant="secondary" onClick={() => navigate('/reports')}>
             <FileText className="w-4 h-4 mr-2" />
             Payroll Reports
           </Button>
-          <Button variant="secondary" onClick={() => console.log('Opening tax reports')}>
+          <Button variant="secondary" onClick={() => navigate('/reports')}>
             <Calculator className="w-4 h-4 mr-2" />
             Tax Reports
           </Button>
@@ -407,7 +421,7 @@ export default function Payroll() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Average Salary</p>
-              <p className="text-2xl font-bold text-orange-600 mt-1">${avgSalary.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-orange-600 mt-1">{formatCurrency(avgSalary)}</p>
             </div>
             <div className="p-3 bg-orange-100 rounded-lg">
               <DollarSign className="w-6 h-6 text-orange-600" />
@@ -488,7 +502,7 @@ export default function Payroll() {
                 />
               </div>
               <div className="flex space-x-3">
-                <Button variant="secondary" onClick={() => console.log('Bulk import employees')}>
+                <Button variant="secondary" onClick={() => setShowBulkImportModal(true)}>
                   <Upload className="w-4 h-4 mr-2" />
                   Import Employees
                 </Button>
@@ -531,7 +545,7 @@ export default function Payroll() {
                         <p className="text-sm text-gray-900">{employee.department}</p>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <p className="font-semibold text-gray-900">${employee.salary.toLocaleString()}</p>
+                        <p className="font-semibold text-gray-900">{formatCurrency(employee.salary)}</p>
                         <p className="text-xs text-gray-500">{employee.payFrequency}</p>
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -590,7 +604,7 @@ export default function Payroll() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900">Payroll Processing</h2>
               <div className="flex space-x-3">
-                <Button variant="secondary" onClick={() => console.log('Opening payroll calendar')}>
+                <Button variant="secondary" onClick={() => setShowPayrollCalendarModal(true)}>
                   <Calendar className="w-4 h-4 mr-2" />
                   Payroll Calendar
                 </Button>
@@ -644,7 +658,7 @@ export default function Payroll() {
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
                           <button 
-                            onClick={() => console.log('Viewing payroll details:', run.id)}
+                            onClick={() => { setEditingPayroll(run); setShowPayrollDetailsModal(true); }}
                             className="p-1 text-gray-500 hover:text-blue-600"
                           >
                             <Eye className="w-4 h-4" />
@@ -687,7 +701,7 @@ export default function Payroll() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900">Time Tracking & Timesheets</h2>
               <div className="flex space-x-3">
-                <Button variant="secondary" onClick={() => console.log('Bulk approve timesheets')}>
+                <Button variant="secondary" onClick={() => handleBulkApproveTimesheets()}>
                   <CheckCircle className="w-4 h-4 mr-2" />
                   Bulk Approve
                 </Button>
@@ -792,7 +806,7 @@ export default function Payroll() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900">Leave Management</h2>
               <div className="flex space-x-3">
-                <Button variant="secondary" onClick={() => console.log('Opening leave calendar')}>
+                <Button variant="secondary" onClick={() => setShowLeaveCalendarModal(true)}>
                   <Calendar className="w-4 h-4 mr-2" />
                   Leave Calendar
                 </Button>
@@ -892,11 +906,11 @@ export default function Payroll() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">Attendance Tracking</h2>
             <div className="flex space-x-3">
-              <Button variant="secondary" onClick={() => console.log('Generating attendance report')}>
+              <Button variant="secondary" onClick={() => navigate('/reports')}>
                 <FileText className="w-4 h-4 mr-2" />
                 Attendance Report
               </Button>
-              <Button onClick={() => console.log('Manual attendance entry')}>
+              <Button onClick={() => setShowManualAttendanceModal(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Manual Entry
               </Button>

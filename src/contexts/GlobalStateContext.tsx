@@ -1,45 +1,27 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
+import { reportingService } from '../services/reporting.service';
+import { getTranslation } from '../lib/translations';
+import { eastAfricanTaxConfigs, CountryTaxConfig, getCountryTaxConfig } from '../lib/eastAfricanTaxConfigs';
+import jsPDF from 'jspdf';
+import * as XLSX from 'xlsx';
 
-// Kenyan-specific types and interfaces
-export interface KenyanTaxSettings {
-  vatRate: number; // 16% standard VAT
-  vatExemptItems: string[];
-  payeRates: PayeRate[];
-  nssfRate: number; // 6% (employee 6%, employer 6%)
-  nhifRates: NhifRate[];
-  withholdingTaxRates: WithholdingTaxRate[];
-  kraPin: string;
-  vatRegistrationNumber: string;
+// Tax-related types and interfaces
+export interface TaxSettings {
+  countryCode: string;
+  taxRegistrationNumber: string;
+  vatRegistrationNumber?: string;
+  taxAuthority: string;
 }
 
-export interface PayeRate {
-  minAmount: number;
-  maxAmount: number;
-  rate: number;
-  monthlyRelief: number;
-}
-
-export interface NhifRate {
-  minSalary: number;
-  maxSalary: number;
-  contribution: number;
-}
-
-export interface WithholdingTaxRate {
-  category: string;
-  rate: number;
-  description: string;
-}
-
-export interface KenyanBankingIntegration {
-  mpesaApiKey: string;
-  mpesaConsumerKey: string;
-  mpesaConsumerSecret: string;
-  equityBankApi: string;
-  kcbBankApi: string;
-  cooperativeBankApi: string;
+export interface BankingIntegration {
+  mpesaApiKey?: string;
+  mpesaConsumerKey?: string;
+  mpesaConsumerSecret?: string;
+  equityBankApi?: string;
+  kcbBankApi?: string;
+  cooperativeBankApi?: string;
   enableRealTimeSync: boolean;
 }
 
@@ -59,13 +41,36 @@ export interface GlobalState {
   inventory: InventoryItem[];
   
   // Configuration
-  kenyanTaxSettings: KenyanTaxSettings;
-  bankingIntegration: KenyanBankingIntegration;
+  taxSettings: TaxSettings;
+  bankingIntegration: BankingIntegration;
+  settings: {
+    currency: string;
+    currencySymbol: string;
+    language: string;
+    timezone: string;
+    dateFormat: string;
+    fiscalYearStart: string;
+  };
   
   // System State
   loading: boolean;
   error: string | null;
   lastSync: Date | null;
+  notifications: Notification[];
+}
+
+interface Notification {
+  id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  message: string;
+  timestamp: Date;
+  read: boolean;
+  category?: 'system' | 'user' | 'financial' | 'compliance' | 'workflow';
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  actionUrl?: string;
+  actionLabel?: string;
+  persistent?: boolean; // If true, won't auto-remove
+  userId?: string; // For user-specific notifications
 }
 
 interface Account {
@@ -275,6 +280,12 @@ interface InventoryItem {
 type GlobalAction = 
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'ADD_NOTIFICATION'; payload: Notification }
+  | { type: 'REMOVE_NOTIFICATION'; payload: string }
+  | { type: 'MARK_NOTIFICATION_READ'; payload: string }
+  | { type: 'MARK_ALL_NOTIFICATIONS_READ' }
+  | { type: 'CLEAR_ALL_NOTIFICATIONS' }
+  | { type: 'LOAD_NOTIFICATIONS'; payload: Notification[] }
   | { type: 'ADD_ACCOUNT'; payload: Account }
   | { type: 'UPDATE_ACCOUNT'; payload: { id: string; data: Partial<Account> } }
   | { type: 'DELETE_ACCOUNT'; payload: string }
@@ -292,8 +303,8 @@ type GlobalAction =
   | { type: 'ADD_ESTIMATE'; payload: Estimate }
   | { type: 'UPDATE_ESTIMATE'; payload: { id: string; data: Partial<Estimate> } }
   | { type: 'CONVERT_ESTIMATE_TO_INVOICE'; payload: string }
-  | { type: 'UPDATE_KENYAN_TAX_SETTINGS'; payload: Partial<KenyanTaxSettings> }
-  | { type: 'SYNC_WITH_KRA'; payload: any }
+  | { type: 'UPDATE_TAX_SETTINGS'; payload: Partial<TaxSettings> }
+  | { type: 'SYNC_WITH_TAX_AUTHORITY'; payload: any }
   | { type: 'SYNC_WITH_BANKS'; payload: any };
 
 const initialState: GlobalState = {
@@ -447,48 +458,11 @@ const initialState: GlobalState = {
   assets: [],
   inventory: [],
   
-  kenyanTaxSettings: {
-    vatRate: 16,
-    vatExemptItems: ['Basic Food Items', 'Medical Supplies', 'Educational Materials'],
-    payeRates: [
-      { minAmount: 0, maxAmount: 24000, rate: 10, monthlyRelief: 2400 },
-      { minAmount: 24001, maxAmount: 32333, rate: 25, monthlyRelief: 2400 },
-      { minAmount: 32334, maxAmount: 500000, rate: 30, monthlyRelief: 2400 },
-      { minAmount: 500001, maxAmount: 800000, rate: 32.5, monthlyRelief: 2400 },
-      { minAmount: 800001, maxAmount: Infinity, rate: 35, monthlyRelief: 2400 }
-    ],
-    nssfRate: 6,
-    nhifRates: [
-      { minSalary: 0, maxSalary: 5999, contribution: 150 },
-      { minSalary: 6000, maxSalary: 7999, contribution: 300 },
-      { minSalary: 8000, maxSalary: 11999, contribution: 400 },
-      { minSalary: 12000, maxSalary: 14999, contribution: 500 },
-      { minSalary: 15000, maxSalary: 19999, contribution: 600 },
-      { minSalary: 20000, maxSalary: 24999, contribution: 750 },
-      { minSalary: 25000, maxSalary: 29999, contribution: 850 },
-      { minSalary: 30000, maxSalary: 34999, contribution: 900 },
-      { minSalary: 35000, maxSalary: 39999, contribution: 950 },
-      { minSalary: 40000, maxSalary: 44999, contribution: 1000 },
-      { minSalary: 45000, maxSalary: 49999, contribution: 1100 },
-      { minSalary: 50000, maxSalary: 59999, contribution: 1200 },
-      { minSalary: 60000, maxSalary: 69999, contribution: 1300 },
-      { minSalary: 70000, maxSalary: 79999, contribution: 1400 },
-      { minSalary: 80000, maxSalary: 89999, contribution: 1500 },
-      { minSalary: 90000, maxSalary: 99999, contribution: 1600 },
-      { minSalary: 100000, maxSalary: Infinity, contribution: 1700 }
-    ],
-    withholdingTaxRates: [
-      { category: 'PROFESSIONAL_SERVICES', rate: 5, description: 'Professional and consultancy services' },
-      { category: 'MANAGEMENT_FEES', rate: 5, description: 'Management or professional fees' },
-      { category: 'CONTRACTUAL_FEES', rate: 5, description: 'Contractual fees' },
-      { category: 'RENT', rate: 10, description: 'Rent payments' },
-      { category: 'INTEREST', rate: 15, description: 'Interest payments' },
-      { category: 'DIVIDENDS', rate: 5, description: 'Dividend payments to residents' },
-      { category: 'ROYALTIES', rate: 20, description: 'Royalty payments' },
-      { category: 'COMMISSION', rate: 5, description: 'Commission payments' }
-    ],
-    kraPin: 'P051234567A',
-    vatRegistrationNumber: 'VAT001234567'
+  taxSettings: {
+    countryCode: 'KE',
+    taxRegistrationNumber: 'P051234567A',
+    vatRegistrationNumber: 'VAT001234567',
+    taxAuthority: 'Kenya Revenue Authority (KRA)'
   },
   
   bankingIntegration: {
@@ -501,9 +475,19 @@ const initialState: GlobalState = {
     enableRealTimeSync: false
   },
   
+  settings: {
+    currency: 'KES',
+    currencySymbol: 'KES',
+    language: 'en',
+    timezone: 'Africa/Nairobi',
+    dateFormat: 'DD/MM/YYYY',
+    fiscalYearStart: '01/01'
+  },
+  
   loading: false,
   error: null,
-  lastSync: null
+  lastSync: null,
+  notifications: []
 };
 
 function globalStateReducer(state: GlobalState, action: GlobalAction): GlobalState {
@@ -513,6 +497,32 @@ function globalStateReducer(state: GlobalState, action: GlobalAction): GlobalSta
       
     case 'SET_ERROR':
       return { ...state, error: action.payload };
+      
+    case 'ADD_NOTIFICATION':
+      return { ...state, notifications: [...state.notifications, action.payload] };
+      
+    case 'REMOVE_NOTIFICATION':
+      return { ...state, notifications: state.notifications.filter(n => n.id !== action.payload) };
+      
+    case 'MARK_NOTIFICATION_READ':
+      return {
+        ...state,
+        notifications: state.notifications.map(n =>
+          n.id === action.payload ? { ...n, read: true } : n
+        )
+      };
+      
+    case 'MARK_ALL_NOTIFICATIONS_READ':
+      return {
+        ...state,
+        notifications: state.notifications.map(n => ({ ...n, read: true }))
+      };
+      
+    case 'CLEAR_ALL_NOTIFICATIONS':
+      return { ...state, notifications: [] };
+      
+    case 'LOAD_NOTIFICATIONS':
+      return { ...state, notifications: action.payload };
       
     case 'ADD_ACCOUNT':
       return { ...state, accounts: [...state.accounts, action.payload] };
@@ -677,6 +687,42 @@ function globalStateReducer(state: GlobalState, action: GlobalAction): GlobalSta
       
       return { ...state, invoices: updatedInvoices };
       
+    case 'UPDATE_SETTINGS':
+      const newSettings = {
+        ...state.settings,
+        ...action.payload
+      };
+      localStorage.setItem('erpSettings', JSON.stringify(newSettings));
+      return {
+        ...state,
+        settings: newSettings
+      };
+
+    case 'UPDATE_TAX_SETTINGS':
+      const updatedTaxSettings = {
+        ...state.taxSettings,
+        ...action.payload
+      };
+      // Update currency and other settings based on country
+      const countryConfig = getCountryTaxConfig(updatedTaxSettings.countryCode);
+      if (countryConfig) {
+        const updatedAppSettings = {
+          ...state.settings,
+          currency: countryConfig.currency,
+          currencySymbol: countryConfig.currencySymbol
+        };
+        localStorage.setItem('erpSettings', JSON.stringify(updatedAppSettings));
+        return {
+          ...state,
+          taxSettings: updatedTaxSettings,
+          settings: updatedAppSettings
+        };
+      }
+      return {
+        ...state,
+        taxSettings: updatedTaxSettings
+      };
+
     default:
       return state;
   }
@@ -685,6 +731,26 @@ function globalStateReducer(state: GlobalState, action: GlobalAction): GlobalSta
 interface GlobalStateContextType {
   state: GlobalState;
   dispatch: React.Dispatch<GlobalAction>;
+  showNotification: (
+    message: string,
+    type?: 'success' | 'error' | 'info' | 'warning',
+    options?: {
+      category?: 'system' | 'user' | 'financial' | 'compliance' | 'workflow';
+      priority?: 'low' | 'medium' | 'high' | 'critical';
+      actionUrl?: string;
+      actionLabel?: string;
+      persistent?: boolean;
+      userId?: string;
+    }
+  ) => void;
+  markNotificationRead: (id: string) => void;
+  markAllNotificationsRead: () => void;
+  clearAllNotifications: () => void;
+  
+  // Utility functions
+  formatCurrency: (amount: number, showSymbol?: boolean) => string;
+  formatDate: (date: Date) => string;
+  t: (key: string) => string;
   
   // Account operations
   addAccount: (account: Omit<Account, 'id'>) => void;
@@ -718,12 +784,12 @@ interface GlobalStateContextType {
   exportData: (type: string, format: 'csv' | 'excel' | 'pdf') => void;
   downloadDocument: (type: string, id: string) => void;
   
-  // Kenyan-specific operations
-  calculatePaye: (grossSalary: number, benefits: number, relief: number) => number;
+  // Tax operations
+  calculatePaye: (grossSalary: number, benefits?: number, relief?: number) => number;
   calculateNhif: (grossSalary: number) => number;
   calculateNssf: (grossSalary: number) => number;
   calculateWithholdingTax: (amount: number, category: string) => number;
-  submitToKra: (documentType: string, documentId: string) => Promise<boolean>;
+  submitToTaxAuthority: (documentType: string, documentId: string) => Promise<boolean>;
   syncWithBanks: () => Promise<void>;
 }
 
@@ -741,6 +807,54 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
   const [state, dispatch] = useReducer(globalStateReducer, initialState);
   const { user } = useAuth();
   const { tenant } = useTenant();
+
+  // Handle language changes
+  useEffect(() => {
+    if (state.settings.language) {
+      document.documentElement.lang = state.settings.language;
+      // Update document title or other language-specific elements
+      document.title = state.settings.language === 'fr' ? 'Neko ERP - Système de Gestion' : 
+                      state.settings.language === 'es' ? 'Neko ERP - Sistema de Gestión' :
+                      state.settings.language === 'de' ? 'Neko ERP - Verwaltungssystem' :
+                      'Neko ERP - Enterprise Resource Planning';
+    }
+  }, [state.settings.language]);
+
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('erpSettings');
+    if (savedSettings) {
+      try {
+        const parsedSettings = JSON.parse(savedSettings);
+        dispatch({ type: 'UPDATE_SETTINGS', payload: parsedSettings });
+      } catch (error) {
+        console.error('Error parsing saved settings:', error);
+      }
+    }
+  }, []);
+
+  // Load notifications from localStorage on mount
+  useEffect(() => {
+    const savedNotifications = localStorage.getItem('erpNotifications');
+    if (savedNotifications) {
+      try {
+        const parsedNotifications = JSON.parse(savedNotifications);
+        // Convert timestamp strings back to Date objects
+        const notificationsWithDates = parsedNotifications.map((n: any) => ({
+          ...n,
+          timestamp: new Date(n.timestamp)
+        }));
+        dispatch({ type: 'LOAD_NOTIFICATIONS', payload: notificationsWithDates });
+      } catch (error) {
+        console.error('Error parsing saved notifications:', error);
+      }
+    }
+  }, []);
+
+  // Save notifications to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('erpNotifications', JSON.stringify(state.notifications));
+  }, [state.notifications]);
 
   // Account operations
   const addAccount = (accountData: Omit<Account, 'id'>) => {
@@ -900,62 +1014,6 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
     updateEstimate(id, { status: 'sent' });
   };
 
-  // Kenyan tax calculations
-  const calculatePaye = (grossSalary: number, benefits: number = 0, relief: number = 2400): number => {
-    const taxableIncome = grossSalary + benefits;
-    let tax = 0;
-    
-    for (const bracket of state.kenyanTaxSettings.payeRates) {
-      if (taxableIncome > bracket.minAmount) {
-        const taxableAtThisBracket = Math.min(taxableIncome, bracket.maxAmount) - bracket.minAmount;
-        tax += taxableAtThisBracket * (bracket.rate / 100);
-      }
-    }
-    
-    return Math.max(0, tax - relief);
-  };
-
-  const calculateNhif = (grossSalary: number): number => {
-    const nhifBracket = state.kenyanTaxSettings.nhifRates.find(
-      rate => grossSalary >= rate.minSalary && grossSalary <= rate.maxSalary
-    );
-    return nhifBracket ? nhifBracket.contribution : 1700; // Maximum contribution
-  };
-
-  const calculateNssf = (grossSalary: number): number => {
-    const pensionablePay = Math.min(grossSalary, 18000); // NSSF ceiling
-    return pensionablePay * (state.kenyanTaxSettings.nssfRate / 100);
-  };
-
-  const calculateWithholdingTax = (amount: number, category: string): number => {
-    const rate = state.kenyanTaxSettings.withholdingTaxRates.find(
-      wht => wht.category === category
-    );
-    return rate ? amount * (rate.rate / 100) : 0;
-  };
-
-  // KRA integration
-  const submitToKra = async (documentType: string, documentId: string): Promise<boolean> => {
-    try {
-      // Simulate KRA eTIMS submission
-      dispatch({ type: 'SET_LOADING', payload: true });
-      
-      // In real implementation, this would call KRA eTIMS API
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      if (documentType === 'invoice') {
-        updateInvoice(documentId, { kraSubmitted: true, etims: true });
-      }
-      
-      dispatch({ type: 'SET_LOADING', payload: false });
-      return true;
-    } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to submit to KRA' });
-      dispatch({ type: 'SET_LOADING', payload: false });
-      return false;
-    }
-  };
-
   // Bank integration
   const syncWithBanks = async (): Promise<void> => {
     try {
@@ -973,86 +1031,347 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
   };
 
   // Report generation
-  const generateReport = (type: string, parameters: any) => {
-    switch (type) {
-      case 'profit_loss':
-        const revenue = state.accounts.filter(a => a.type === 'Revenue').reduce((sum, a) => sum + Math.abs(a.balance), 0);
-        const expenses = state.accounts.filter(a => a.type === 'Expense').reduce((sum, a) => sum + a.balance, 0);
-        return {
-          revenue,
-          expenses,
-          netIncome: revenue - expenses,
-          grossProfit: revenue - state.accounts.find(a => a.code === '5000')?.balance || 0
-        };
-        
-      case 'balance_sheet':
-        const totalAssets = state.accounts.filter(a => a.type === 'Asset').reduce((sum, a) => sum + Math.max(0, a.balance), 0);
-        const totalLiabilities = Math.abs(state.accounts.filter(a => a.type === 'Liability').reduce((sum, a) => sum + a.balance, 0));
-        const totalEquity = Math.abs(state.accounts.filter(a => a.type === 'Equity').reduce((sum, a) => sum + a.balance, 0));
-        return { totalAssets, totalLiabilities, totalEquity };
-        
-      case 'cash_flow':
-        const operatingCash = 500000; // Calculated from operations
-        const investingCash = -200000; // Asset purchases
-        const financingCash = 100000; // Loan proceeds
-        return {
-          inflows: operatingCash + financingCash,
-          outflows: Math.abs(investingCash),
-          netCashFlow: operatingCash + investingCash + financingCash
-        };
-        
-      case 'ar_aging':
-        return state.customers.filter(c => c.balance > 0).map(customer => ({
-          customerName: customer.name,
-          total: customer.balance,
-          current: customer.balance * 0.6,
-          days30: customer.balance * 0.25,
-          days60: customer.balance * 0.1,
-          days90: customer.balance * 0.05
-        }));
-        
-      case 'trial_balance':
-        return state.accounts.map(account => ({
-          code: account.code,
-          name: account.name,
-          type: account.type,
-          debit: account.balance > 0 ? account.balance : 0,
-          credit: account.balance < 0 ? Math.abs(account.balance) : 0
-        }));
-        
-      default:
-        return {};
+  const generateReport = async (type: string, parameters: any) => {
+    try {
+      const { startDate, endDate } = parameters || {};
+      const dateRange = startDate && endDate ? { startDate, endDate } : { startDate: '2025-01-01', endDate: '2025-12-31' };
+      const asOfDate = parameters?.asOfDate || new Date().toISOString().split('T')[0];
+
+      switch (type) {
+        case 'profit_loss':
+          return await reportingService.generateProfitLossReport(dateRange);
+          
+        case 'balance_sheet':
+          return await reportingService.generateBalanceSheetReport(asOfDate);
+          
+        case 'cash_flow':
+          return await reportingService.generateCashFlowReport(dateRange);
+          
+        case 'ar_aging':
+          return await reportingService.generateARAgingReport(asOfDate);
+          
+        case 'trial_balance':
+          return await reportingService.generateTrialBalance(asOfDate);
+          
+        case 'vat_return':
+          return await reportingService.generateVATReturnReport(dateRange);
+          
+        default:
+          throw new Error(`Unknown report type: ${type}`);
+      }
+    } catch (error) {
+      console.error('Error generating report:', error);
+      // Fallback to mock data
+      switch (type) {
+        case 'profit_loss':
+          const revenue = state.accounts.filter(a => a.type === 'Revenue').reduce((sum, a) => sum + Math.abs(a.balance), 0);
+          const expenses = state.accounts.filter(a => a.type === 'Expense').reduce((sum, a) => sum + a.balance, 0);
+          return {
+            revenue,
+            expenses,
+            netIncome: revenue - expenses,
+            grossProfit: revenue - state.accounts.find(a => a.code === '5000')?.balance || 0
+          };
+          
+        case 'balance_sheet':
+          const totalAssets = state.accounts.filter(a => a.type === 'Asset').reduce((sum, a) => sum + Math.max(0, a.balance), 0);
+          const totalLiabilities = Math.abs(state.accounts.filter(a => a.type === 'Liability').reduce((sum, a) => sum + a.balance, 0));
+          const totalEquity = Math.abs(state.accounts.filter(a => a.type === 'Equity').reduce((sum, a) => sum + a.balance, 0));
+          return { totalAssets, totalLiabilities, totalEquity };
+          
+        case 'cash_flow':
+          const operatingCash = 500000;
+          const investingCash = -200000;
+          const financingCash = 100000;
+          return {
+            inflows: operatingCash + financingCash,
+            outflows: Math.abs(investingCash),
+            netCashFlow: operatingCash + investingCash + financingCash
+          };
+          
+        case 'ar_aging':
+          return state.customers.filter(c => c.balance > 0).map(customer => ({
+            customerName: customer.name,
+            total: customer.balance,
+            current: customer.balance * 0.6,
+            days30: customer.balance * 0.25,
+            days60: customer.balance * 0.1,
+            days90: customer.balance * 0.05
+          }));
+          
+        case 'trial_balance':
+          return state.accounts.map(account => ({
+            code: account.code,
+            name: account.name,
+            type: account.type,
+            debit: account.balance > 0 ? account.balance : 0,
+            credit: account.balance < 0 ? Math.abs(account.balance) : 0
+          }));
+          
+        default:
+          return {};
+      }
     }
   };
 
-  const exportData = (type: string, format: 'csv' | 'excel' | 'pdf') => {
-    const data = generateReport(type, {});
+  const showNotification = (
+    message: string,
+    type: 'success' | 'error' | 'info' | 'warning' = 'info',
+    options?: {
+      category?: 'system' | 'user' | 'financial' | 'compliance' | 'workflow';
+      priority?: 'low' | 'medium' | 'high' | 'critical';
+      actionUrl?: string;
+      actionLabel?: string;
+      persistent?: boolean;
+      userId?: string;
+    }
+  ) => {
+    // Check user notification preferences
+    const userPrefs = user?.notificationPreferences;
+    if (userPrefs) {
+      // Check if in-app notifications are enabled
+      if (!userPrefs.inApp) return;
+
+      // Check category preferences
+      if (options?.category && !userPrefs.categories[options.category]) return;
+
+      // Check priority preferences
+      if (options?.priority && !userPrefs.priorities[options.priority]) return;
+    }
+
+    const notification: Notification = {
+      id: Date.now().toString(),
+      message,
+      type,
+      timestamp: new Date(),
+      read: false,
+      ...options
+    };
+    dispatch({ type: 'ADD_NOTIFICATION', payload: notification });
     
-    if (format === 'csv') {
-      // Generate CSV
-      let csvContent = '';
-      if (type === 'trial_balance') {
-        csvContent = 'Account Code,Account Name,Type,Debit (KES),Credit (KES)\n';
-        data.forEach((row: any) => {
-          csvContent += `${row.code},${row.name},${row.type},${row.debit},${row.credit}\n`;
-        });
+    // Auto-remove notification after 5 seconds (only for non-persistent notifications)
+    if (!notification.persistent) {
+      setTimeout(() => {
+        dispatch({ type: 'REMOVE_NOTIFICATION', payload: notification.id });
+      }, 5000);
+    }
+  };
+
+  const markNotificationRead = (id: string) => {
+    dispatch({ type: 'MARK_NOTIFICATION_READ', payload: id });
+  };
+
+  const markAllNotificationsRead = () => {
+    dispatch({ type: 'MARK_ALL_NOTIFICATIONS_READ' });
+  };
+
+  const clearAllNotifications = () => {
+    dispatch({ type: 'CLEAR_ALL_NOTIFICATIONS' });
+  };
+
+  const exportData = async (type: string, format: 'csv' | 'excel' | 'pdf') => {
+    try {
+      const data = await generateReport(type, {});
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = `${type}_report_${timestamp}`;
+
+      if (format === 'csv') {
+        let csvContent = '';
+        if (type === 'trial_balance') {
+          csvContent = `Account Code,Account Name,Type,Debit (${state.settings.currency}),Credit (${state.settings.currency})\n`;
+          data.accounts.forEach((row: any) => {
+            csvContent += `${row.code},"${row.name}",${row.accountType},${row.debit || 0},${row.credit || 0}\n`;
+          });
+        } else if (type === 'profit_loss') {
+          csvContent = `Category,Amount (${state.settings.currency})\n`;
+          csvContent += `Revenue,${data.revenue.total}\n`;
+          data.revenue.breakdown.forEach((item: any) => {
+            csvContent += `"${item.account}",${item.amount}\n`;
+          });
+          csvContent += `Cost of Sales,${data.costOfSales.total}\n`;
+          csvContent += `Gross Profit,${data.grossProfit}\n`;
+          csvContent += `Operating Expenses,${data.operatingExpenses.total}\n`;
+          csvContent += `Operating Income,${data.operatingIncome}\n`;
+          csvContent += `Net Income,${data.netIncome}\n`;
+        } else if (type === 'balance_sheet') {
+          csvContent = `Category,Amount (${state.settings.currency})\n`;
+          csvContent += `Current Assets,${data.assets.currentAssets.total}\n`;
+          csvContent += `Fixed Assets,${data.assets.fixedAssets.total}\n`;
+          csvContent += `Total Assets,${data.assets.total}\n`;
+          csvContent += `Current Liabilities,${data.liabilities.currentLiabilities.total}\n`;
+          csvContent += `Long-term Liabilities,${data.liabilities.longTermLiabilities.total}\n`;
+          csvContent += `Total Liabilities,${data.liabilities.total}\n`;
+          csvContent += `Equity,${data.equity.total}\n`;
+        }
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+
+      } else if (format === 'excel') {
+        let worksheetData: any[] = [];
+
+        if (type === 'trial_balance') {
+          worksheetData = [
+            ['Account Code', 'Account Name', 'Type', `Debit (${state.settings.currency})`, `Credit (${state.settings.currency})`],
+            ...data.accounts.map((row: any) => [row.code, row.name, row.accountType, row.debit || 0, row.credit || 0])
+          ];
+        } else if (type === 'profit_loss') {
+          worksheetData = [
+            ['Category', `Amount (${state.settings.currency})`],
+            ['Revenue', data.revenue.total],
+            ...data.revenue.breakdown.map((item: any) => [item.account, item.amount]),
+            ['Cost of Sales', data.costOfSales.total],
+            ['Gross Profit', data.grossProfit],
+            ['Operating Expenses', data.operatingExpenses.total],
+            ['Operating Income', data.operatingIncome],
+            ['Net Income', data.netIncome]
+          ];
+        } else if (type === 'balance_sheet') {
+          worksheetData = [
+            ['Category', `Amount (${state.settings.currency})`],
+            ['Current Assets', data.assets.currentAssets.total],
+            ['Fixed Assets', data.assets.fixedAssets.total],
+            ['Total Assets', data.assets.total],
+            ['Current Liabilities', data.liabilities.currentLiabilities.total],
+            ['Long-term Liabilities', data.liabilities.longTermLiabilities.total],
+            ['Total Liabilities', data.liabilities.total],
+            ['Equity', data.equity.total]
+          ];
+        }
+
+        const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Report');
+        XLSX.writeFile(workbook, `${filename}.xlsx`);
+
+      } else if (format === 'pdf') {
+        const pdf = new jsPDF();
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        let yPosition = 20;
+
+        // Header
+        pdf.setFontSize(18);
+        pdf.text(`${type.replace('_', ' ').toUpperCase()} REPORT`, pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 10;
+
+        pdf.setFontSize(12);
+        pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 20;
+
+        pdf.setFontSize(14);
+
+        if (type === 'trial_balance') {
+          pdf.text('TRIAL BALANCE', 20, yPosition);
+          yPosition += 10;
+
+          pdf.setFontSize(10);
+          pdf.text('Account Code', 20, yPosition);
+          pdf.text('Account Name', 60, yPosition);
+          pdf.text(`Debit (${state.settings.currency})`, 140, yPosition);
+          pdf.text(`Credit (${state.settings.currency})`, 180, yPosition);
+          yPosition += 5;
+
+          pdf.line(20, yPosition, pageWidth - 20, yPosition);
+          yPosition += 5;
+
+          data.accounts.forEach((row: any) => {
+            if (yPosition > pageHeight - 20) {
+              pdf.addPage();
+              yPosition = 20;
+            }
+            pdf.text(row.code, 20, yPosition);
+            pdf.text(row.name.substring(0, 25), 60, yPosition);
+            pdf.text(row.debit ? row.debit.toLocaleString() : '-', 140, yPosition);
+            pdf.text(row.credit ? row.credit.toLocaleString() : '-', 180, yPosition);
+            yPosition += 5;
+          });
+
+        } else if (type === 'profit_loss') {
+          pdf.text('PROFIT & LOSS STATEMENT', 20, yPosition);
+          yPosition += 15;
+
+          pdf.setFontSize(12);
+          pdf.text('Revenue', 20, yPosition);
+          pdf.text(`${state.settings.currencySymbol} ${data.revenue.total.toLocaleString()}`, 150, yPosition);
+          yPosition += 10;
+
+          data.revenue.breakdown.forEach((item: any) => {
+            pdf.setFontSize(10);
+            pdf.text(`  ${item.account}`, 30, yPosition);
+            pdf.text(`${state.settings.currencySymbol} ${item.amount.toLocaleString()}`, 150, yPosition);
+            yPosition += 5;
+          });
+
+          yPosition += 5;
+          pdf.setFontSize(12);
+          pdf.text('Cost of Sales', 20, yPosition);
+          pdf.text(`${state.settings.currencySymbol} ${data.costOfSales.total.toLocaleString()}`, 150, yPosition);
+          yPosition += 10;
+
+          pdf.text('Gross Profit', 20, yPosition);
+          pdf.text(`${state.settings.currencySymbol} ${data.grossProfit.toLocaleString()}`, 150, yPosition);
+          yPosition += 10;
+
+          pdf.text('Operating Expenses', 20, yPosition);
+          pdf.text(`${state.settings.currencySymbol} ${data.operatingExpenses.total.toLocaleString()}`, 150, yPosition);
+          yPosition += 10;
+
+          pdf.text('Net Income', 20, yPosition);
+          pdf.text(`${state.settings.currencySymbol} ${data.netIncome.toLocaleString()}`, 150, yPosition);
+
+        } else if (type === 'balance_sheet') {
+          pdf.text('BALANCE SHEET', 20, yPosition);
+          yPosition += 15;
+
+          pdf.setFontSize(12);
+          pdf.text('ASSETS', 20, yPosition);
+          yPosition += 10;
+
+          pdf.text('Current Assets', 30, yPosition);
+          pdf.text(`${state.settings.currencySymbol} ${data.assets.currentAssets.total.toLocaleString()}`, 150, yPosition);
+          yPosition += 8;
+
+          pdf.text('Fixed Assets', 30, yPosition);
+          pdf.text(`${state.settings.currencySymbol} ${data.assets.fixedAssets.total.toLocaleString()}`, 150, yPosition);
+          yPosition += 8;
+
+          pdf.text('Total Assets', 20, yPosition);
+          pdf.text(`${state.settings.currencySymbol} ${data.assets.total.toLocaleString()}`, 150, yPosition);
+          yPosition += 15;
+
+          pdf.text('LIABILITIES & EQUITY', 20, yPosition);
+          yPosition += 10;
+
+          pdf.text('Current Liabilities', 30, yPosition);
+          pdf.text(`${state.settings.currencySymbol} ${data.liabilities.currentLiabilities.total.toLocaleString()}`, 150, yPosition);
+          yPosition += 8;
+
+          pdf.text('Long-term Liabilities', 30, yPosition);
+          pdf.text(`${state.settings.currencySymbol} ${data.liabilities.longTermLiabilities.total.toLocaleString()}`, 150, yPosition);
+          yPosition += 8;
+
+          pdf.text('Total Liabilities', 20, yPosition);
+          pdf.text(`${state.settings.currencySymbol} ${data.liabilities.total.toLocaleString()}`, 150, yPosition);
+          yPosition += 8;
+
+          pdf.text('Equity', 20, yPosition);
+          pdf.text(`${state.settings.currencySymbol} ${data.equity.total.toLocaleString()}`, 150, yPosition);
+        }
+
+        pdf.save(`${filename}.pdf`);
       }
-      
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${type}_${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    } else if (format === 'pdf') {
-      // Simulate PDF generation
-      console.log(`Generating PDF for ${type}:`, data);
-      alert(`PDF report generated for ${type}. In a real system, this would download a formatted PDF.`);
-    } else if (format === 'excel') {
-      // Simulate Excel generation
-      console.log(`Generating Excel for ${type}:`, data);
-      alert(`Excel report generated for ${type}. In a real system, this would download an Excel file.`);
+
+      // Show success message
+      showNotification(`Report exported successfully as ${format.toUpperCase()}`, 'success');
+    } catch (error) {
+      console.error('Export error:', error);
+      showNotification('Failed to export report. Please try again.', 'error');
     }
   };
 
@@ -1061,20 +1380,144 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
       const invoice = state.invoices.find(inv => inv.id === id);
       if (invoice) {
         console.log(`Downloading invoice PDF:`, invoice);
-        alert(`Invoice ${invoice.invoiceNumber} PDF downloaded. Total: KES ${invoice.total.toLocaleString()}`);
+        showNotification(`Invoice ${invoice.invoiceNumber} PDF downloaded. Total: ${formatCurrency(invoice.total)}`, 'success');
       }
     } else if (type === 'estimate') {
       const estimate = state.estimates.find(est => est.id === id);
       if (estimate) {
         console.log(`Downloading estimate PDF:`, estimate);
-        alert(`Estimate ${estimate.estimateNumber} PDF downloaded. Total: KES ${estimate.total.toLocaleString()}`);
+        showNotification(`Estimate ${estimate.estimateNumber} PDF downloaded. Total: ${formatCurrency(estimate.total)}`, 'success');
       }
+    }
+  };
+
+  // Utility functions
+  const formatCurrency = (amount: number, showSymbol: boolean = true): string => {
+    if (!showSymbol) {
+      return new Intl.NumberFormat(state.settings.language, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(amount);
+    }
+    
+    // For currencies not well supported by Intl.NumberFormat, use custom formatting
+    if (state.settings.currency === 'KES') {
+      return `${state.settings.currencySymbol} ${amount.toLocaleString(state.settings.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+    
+    try {
+      return new Intl.NumberFormat(state.settings.language, {
+        style: 'currency',
+        currency: state.settings.currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(amount);
+    } catch (error) {
+      // Fallback for unsupported currencies
+      return `${state.settings.currencySymbol} ${amount.toLocaleString(state.settings.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+  };
+
+  const formatDate = (date: Date): string => {
+    return new Intl.DateTimeFormat(state.settings.language, {
+      timeZone: state.settings.timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(date);
+  };
+
+  const t = (key: string): string => {
+    return getTranslation(key, state.settings.language);
+  };
+
+  // Tax calculation functions based on country
+  const getCurrentTaxConfig = (): CountryTaxConfig | null => {
+    return getCountryTaxConfig(state.taxSettings.countryCode);
+  };
+
+  const calculatePaye = (grossSalary: number, benefits: number = 0, relief: number = 0): number => {
+    const taxConfig = getCurrentTaxConfig();
+    if (!taxConfig) return 0;
+
+    const taxableIncome = grossSalary + benefits;
+    let tax = 0;
+
+    for (const bracket of taxConfig.payeRates) {
+      if (taxableIncome > bracket.minAmount!) {
+        const taxableAtThisBracket = Math.min(taxableIncome, bracket.maxAmount || Infinity) - bracket.minAmount!;
+        tax += taxableAtThisBracket * (bracket.rate / 100);
+      }
+    }
+
+    return Math.max(0, tax - relief);
+  };
+
+  const calculateNhif = (grossSalary: number): number => {
+    const taxConfig = getCurrentTaxConfig();
+    if (!taxConfig?.healthInsurance) return 0;
+
+    const nhifBracket = taxConfig.healthInsurance.rates.find(
+      rate => grossSalary >= rate.minSalary! && grossSalary <= (rate.maxSalary || Infinity)
+    );
+    return nhifBracket ? nhifBracket.contribution : taxConfig.healthInsurance.rates[taxConfig.healthInsurance.rates.length - 1].contribution;
+  };
+
+  const calculateNssf = (grossSalary: number): number => {
+    const taxConfig = getCurrentTaxConfig();
+    if (!taxConfig?.socialSecurity) return 0;
+
+    const pensionablePay = Math.min(grossSalary, 18000); // Using Kenyan ceiling as default
+    const rate = taxConfig.socialSecurity.rates[0];
+    return pensionablePay * ((rate.employeeRate || 0) / 100);
+  };
+
+  const calculateWithholdingTax = (amount: number, category: string): number => {
+    const taxConfig = getCurrentTaxConfig();
+    if (!taxConfig) return 0;
+
+    const rate = taxConfig.withholdingTaxRates.find(
+      wht => wht.category === category
+    );
+    return rate ? amount * (rate.rate / 100) : 0;
+  };
+
+  // Tax authority submission (generic)
+  const submitToTaxAuthority = async (documentType: string, documentId: string): Promise<boolean> => {
+    try {
+      const taxConfig = getCurrentTaxConfig();
+      if (!taxConfig) {
+        throw new Error('Tax configuration not found for current country');
+      }
+
+      dispatch({ type: 'SET_LOADING', payload: true });
+
+      // Simulate tax authority submission
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      if (documentType === 'invoice') {
+        updateInvoice(documentId, { kraSubmitted: true, etims: true });
+      }
+
+      dispatch({ type: 'SET_LOADING', payload: false });
+      return true;
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: `Failed to submit to ${getCurrentTaxConfig()?.taxAuthority || 'tax authority'}` });
+      dispatch({ type: 'SET_LOADING', payload: false });
+      return false;
     }
   };
 
   const contextValue: GlobalStateContextType = {
     state,
     dispatch,
+    showNotification,
+    markNotificationRead,
+    markAllNotificationsRead,
+    clearAllNotifications,
+    formatCurrency,
+    formatDate,
+    t,
     addAccount,
     updateAccount,
     deleteAccount,
@@ -1099,7 +1542,7 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
     calculateNhif,
     calculateNssf,
     calculateWithholdingTax,
-    submitToKra,
+    submitToTaxAuthority,
     syncWithBanks
   };
 

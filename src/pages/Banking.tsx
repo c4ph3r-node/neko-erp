@@ -1,95 +1,100 @@
 import React, { useState } from 'react';
 import { Plus, Search, CreditCard, TrendingUp, TrendingDown, RefreshCw, Download } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
 import BankAccountForm from '../components/Forms/BankAccountForm';
 import TransactionForm from '../components/Forms/TransactionForm';
-
-const mockBankAccounts = [
-  {
-    id: 1,
-    name: 'Business Checking',
-    accountNumber: '****1234',
-    bankName: 'First National Bank',
-    accountType: 'checking',
-    balance: 45250.75,
-    currency: 'USD',
-    isDefault: true,
-    lastSync: '2025-01-15 09:30 AM'
-  },
-  {
-    id: 2,
-    name: 'Business Savings',
-    accountNumber: '****5678',
-    bankName: 'First National Bank',
-    accountType: 'savings',
-    balance: 125000.00,
-    currency: 'USD',
-    isDefault: false,
-    lastSync: '2025-01-15 09:30 AM'
-  },
-  {
-    id: 3,
-    name: 'Petty Cash',
-    accountNumber: 'CASH-001',
-    bankName: 'Cash Account',
-    accountType: 'cash',
-    balance: 500.00,
-    currency: 'USD',
-    isDefault: false,
-    lastSync: '2025-01-15 10:00 AM'
-  }
-];
-
-const mockTransactions = [
-  {
-    id: 1,
-    date: '2025-01-15',
-    description: 'Customer Payment - INV-001',
-    reference: 'DEP-001',
-    debit: 0,
-    credit: 5250.00,
-    balance: 45250.75,
-    status: 'cleared',
-    category: 'Income'
-  },
-  {
-    id: 2,
-    date: '2025-01-14',
-    description: 'Office Supplies Purchase',
-    reference: 'CHK-1234',
-    debit: 342.00,
-    credit: 0,
-    balance: 40000.75,
-    status: 'cleared',
-    category: 'Expenses'
-  },
-  {
-    id: 3,
-    date: '2025-01-14',
-    description: 'Monthly Rent Payment',
-    reference: 'ACH-5678',
-    debit: 2500.00,
-    credit: 0,
-    balance: 40342.75,
-    status: 'pending',
-    category: 'Expenses'
-  },
-  {
-    id: 4,
-    date: '2025-01-13',
-    description: 'Customer Payment - INV-002',
-    reference: 'DEP-002',
-    debit: 0,
-    credit: 3800.00,
-    balance: 42842.75,
-    status: 'cleared',
-    category: 'Income'
-  }
-];
+import { useGlobalState } from '../contexts/GlobalStateContext';
 
 export default function Banking() {
+  const { syncWithBanks, showNotification, state, formatCurrency, t } = useGlobalState();
+  const navigate = useNavigate();
+  
+  const mockBankAccounts = [
+    {
+      id: 1,
+      name: 'Business Checking',
+      accountNumber: '****1234',
+      bankName: 'First National Bank',
+      accountType: 'checking',
+      balance: 45250.75,
+      currency: state.settings.currency,
+      isDefault: true,
+      lastSync: '2025-01-15 09:30 AM'
+    },
+    {
+      id: 2,
+      name: 'Business Savings',
+      accountNumber: '****5678',
+      bankName: 'First National Bank',
+      accountType: 'savings',
+      balance: 125000.00,
+      currency: state.settings.currency,
+      isDefault: false,
+      lastSync: '2025-01-15 09:30 AM'
+    },
+    {
+      id: 3,
+      name: 'Petty Cash',
+      accountNumber: 'CASH-001',
+      bankName: 'Cash Account',
+      accountType: 'cash',
+      balance: 500.00,
+      currency: state.settings.currency,
+      isDefault: false,
+      lastSync: '2025-01-15 10:00 AM'
+    }
+  ];
+
+  const mockTransactions = [
+    {
+      id: 1,
+      date: '2025-01-15',
+      description: 'Customer Payment - INV-001',
+      reference: 'DEP-001',
+      debit: 0,
+      credit: 5250.00,
+      balance: 45250.75,
+      status: 'cleared',
+      category: 'Income'
+    },
+    {
+      id: 2,
+      date: '2025-01-14',
+      description: 'Office Supplies Purchase',
+      reference: 'CHK-1234',
+      debit: 342.00,
+      credit: 0,
+      balance: 40000.75,
+      status: 'cleared',
+      category: 'Expenses'
+    },
+    {
+      id: 3,
+      date: '2025-01-14',
+      description: 'Monthly Rent Payment',
+      reference: 'ACH-5678',
+      debit: 2500.00,
+      credit: 0,
+      balance: 40342.75,
+      status: 'pending',
+      category: 'Expenses'
+    },
+    {
+      id: 4,
+      date: '2025-01-13',
+      description: 'Customer Payment - INV-002',
+      reference: 'DEP-002',
+      debit: 0,
+      credit: 3800.00,
+      balance: 42842.75,
+      status: 'cleared',
+      category: 'Income'
+    }
+  ];
+
   const [selectedAccount, setSelectedAccount] = useState(mockBankAccounts[0]);
   const [activeTab, setActiveTab] = useState('transactions');
   const [searchTerm, setSearchTerm] = useState('');
@@ -117,7 +122,7 @@ export default function Banking() {
   };
 
   const handleSubmitAccount = (accountData: any) => {
-    console.log('Submitting account:', accountData);
+    showNotification('Bank account saved successfully', 'success');
     setShowAccountModal(false);
     setEditingAccount(null);
   };
@@ -127,29 +132,34 @@ export default function Banking() {
   };
 
   const handleSubmitTransaction = (transactionData: any) => {
-    console.log('Submitting transaction:', transactionData);
+    showNotification('Transaction saved successfully', 'success');
     setShowTransactionModal(false);
   };
 
-  const handleSyncBanks = () => {
-    console.log('Syncing bank accounts...');
+  const handleSyncBanks = async () => {
+    try {
+      await syncWithBanks();
+      showNotification(t('bankAccountsSynchronizedSuccessfully'), 'success');
+    } catch (error) {
+      showNotification(t('failedToSyncBankAccounts'), 'error');
+    }
   };
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Banking</h1>
-          <p className="text-gray-600">Manage your bank accounts and transactions</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('banking')}</h1>
+          <p className="text-gray-600">{t('manageBankAccountsAndTransactions')}</p>
         </div>
         <div className="flex space-x-3">
           <Button variant="secondary" onClick={handleSyncBanks}>
             <RefreshCw className="w-4 h-4 mr-2" />
-            Sync Banks
+            {t('syncBanks')}
           </Button>
           <Button onClick={handleAddAccount}>
             <Plus className="w-4 h-4 mr-2" />
-            Add Account
+            {t('addAccount')}
           </Button>
         </div>
       </div>
@@ -159,8 +169,8 @@ export default function Banking() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Balance</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">${totalBalance.toLocaleString()}</p>
+              <p className="text-sm font-medium text-gray-600">{t('totalBalance')}</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(totalBalance)}</p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
               <CreditCard className="w-6 h-6 text-blue-600" />
@@ -170,8 +180,8 @@ export default function Banking() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Monthly Income</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">${monthlyIncome.toLocaleString()}</p>
+              <p className="text-sm font-medium text-gray-600">{t('monthlyIncome')}</p>
+              <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(monthlyIncome)}</p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
               <TrendingUp className="w-6 h-6 text-green-600" />
@@ -181,8 +191,8 @@ export default function Banking() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Monthly Expenses</p>
-              <p className="text-2xl font-bold text-red-600 mt-1">${monthlyExpenses.toLocaleString()}</p>
+              <p className="text-sm font-medium text-gray-600">{t('monthlyExpenses')}</p>
+              <p className="text-2xl font-bold text-red-600 mt-1">{formatCurrency(monthlyExpenses)}</p>
             </div>
             <div className="p-3 bg-red-100 rounded-lg">
               <TrendingDown className="w-6 h-6 text-red-600" />
@@ -192,9 +202,9 @@ export default function Banking() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Net Cash Flow</p>
+              <p className="text-sm font-medium text-gray-600">{t('netCashFlow')}</p>
               <p className="text-2xl font-bold text-blue-600 mt-1">
-                ${(monthlyIncome - monthlyExpenses).toLocaleString()}
+                {formatCurrency(monthlyIncome - monthlyExpenses)}
               </p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
@@ -209,7 +219,7 @@ export default function Banking() {
         <div className="lg:col-span-1">
           <Card>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Bank Accounts</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('bankAccounts')}</h2>
               <Button size="sm" onClick={handleAddAccount}>
                 <Plus className="w-4 h-4" />
               </Button>
@@ -229,17 +239,17 @@ export default function Banking() {
                     <p className="font-medium text-gray-900">{account.name}</p>
                     {account.isDefault && (
                       <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                        Default
+                        {t('default')}
                       </span>
                     )}
                   </div>
                   <p className="text-sm text-gray-600">{account.bankName}</p>
                   <p className="text-sm text-gray-600">{account.accountNumber}</p>
                   <p className="text-lg font-bold text-green-600 mt-2">
-                    ${account.balance.toLocaleString()}
+                    {formatCurrency(account.balance)}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Last sync: {account.lastSync}
+                    {t('lastSync')}: {account.lastSync}
                   </p>
                 </button>
               ))}
@@ -260,7 +270,7 @@ export default function Banking() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                Transactions
+                {t('transactions')}
               </button>
               <button
                 onClick={() => setActiveTab('reconciliation')}
@@ -270,7 +280,7 @@ export default function Banking() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                Reconciliation
+                {t('reconciliation')}
               </button>
             </nav>
           </div>
@@ -285,7 +295,7 @@ export default function Banking() {
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
                       type="text"
-                      placeholder="Search transactions..."
+                      placeholder={t('searchTransactions')}
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -294,11 +304,11 @@ export default function Banking() {
                   <div className="flex items-center space-x-3">
                     <Button variant="secondary" size="sm">
                       <Download className="w-4 h-4 mr-2" />
-                      Export
+                      {t('export')}
                     </Button>
                     <Button size="sm" onClick={handleAddTransaction}>
                       <Plus className="w-4 h-4 mr-2" />
-                      Add Transaction
+                      {t('addTransaction')}
                     </Button>
                   </div>
                 </div>
@@ -311,25 +321,25 @@ export default function Banking() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Date
+                          {t('date')}
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Description
+                          {t('description')}
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Reference
+                          {t('reference')}
                         </th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Debit
+                          {t('debit')}
                         </th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Credit
+                          {t('credit')}
                         </th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Balance
+                          {t('balance')}
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
+                          {t('status')}
                         </th>
                       </tr>
                     </thead>
@@ -350,17 +360,17 @@ export default function Banking() {
                           </td>
                           <td className="px-6 py-4 text-right">
                             <p className="text-sm text-red-600">
-                              {transaction.debit > 0 ? `$${transaction.debit.toFixed(2)}` : '-'}
+                              {transaction.debit > 0 ? formatCurrency(transaction.debit) : '-'}
                             </p>
                           </td>
                           <td className="px-6 py-4 text-right">
                             <p className="text-sm text-green-600">
-                              {transaction.credit > 0 ? `$${transaction.credit.toFixed(2)}` : '-'}
+                              {transaction.credit > 0 ? formatCurrency(transaction.credit) : '-'}
                             </p>
                           </td>
                           <td className="px-6 py-4 text-right">
                             <p className="text-sm font-medium text-gray-900">
-                              ${transaction.balance.toFixed(2)}
+                              {formatCurrency(transaction.balance)}
                             </p>
                           </td>
                           <td className="px-6 py-4">
@@ -397,7 +407,7 @@ export default function Banking() {
       <Modal
         isOpen={showAccountModal}
         onClose={() => setShowAccountModal(false)}
-        title={editingAccount ? 'Edit Bank Account' : 'Add New Bank Account'}
+        title={editingAccount ? t('editBankAccount') : t('addNewBankAccount')}
         size="lg"
       >
         <BankAccountForm
@@ -410,7 +420,7 @@ export default function Banking() {
       <Modal
         isOpen={showTransactionModal}
         onClose={() => setShowTransactionModal(false)}
-        title="Add Bank Transaction"
+        title={t('addBankTransaction')}
         size="lg"
       >
         <TransactionForm

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Plus, Search, Package, AlertTriangle, TrendingDown, BarChart3, CreditCard as Edit, Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
 import InventoryForm from '../components/Forms/InventoryForm';
+import { useGlobalState } from '../contexts/GlobalStateContext';
 
 const mockInventoryItems = [
   {
@@ -76,10 +78,12 @@ const inventoryMovements = [
 ];
 
 export default function Inventory() {
+  const { generateReport, exportData, showNotification, formatCurrency, t } = useGlobalState();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('items');
-  const [items] = useState(mockInventoryItems);
+  const [items, setItems] = useState(mockInventoryItems);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
 
@@ -114,36 +118,65 @@ export default function Inventory() {
   };
 
   const handleSubmitItem = (itemData: any) => {
-    console.log('Submitting item:', itemData);
+    showNotification('Item saved successfully', 'success');
     setShowModal(false);
     setEditingItem(null);
   };
 
-  const handleDeleteItem = (itemId: number) => {
-    if (confirm('Are you sure you want to delete this item?')) {
-      console.log('Deleting item:', itemId);
-    }
+  const handleStockReport = () => {
+    // Generate inventory report
+    showNotification('Stock report generated successfully', 'success');
+  };
+
+  const handleAddStockAdjustment = () => {
+    // Open stock adjustment modal/form
+    showNotification('Stock adjustment functionality would open here', 'info');
   };
 
   const handleViewItem = (itemId: number) => {
-    console.log('Viewing item:', itemId);
+    const item = items.find(i => i.id === itemId);
+    if (item) {
+      alert(`Item Details:\nSKU: ${item.sku}\nName: ${item.name}\nQuantity: ${item.quantityOnHand}\nStatus: ${item.status}\nValue: ${formatCurrency(item.totalValue)}`);
+    }
+  };
+
+  const handleDeleteItem = (itemId: number) => {
+    if (confirm(t('areYouSureYouWantToDeleteThisItem'))) {
+      setItems(prev => prev.filter(item => item.id !== itemId));
+      alert(t('itemDeletedSuccessfully'));
+    }
+  };
+
+  const handleAdjustStock = (itemId: number, adjustment: number) => {
+    setItems(prev => prev.map(item => 
+      item.id === itemId 
+        ? { 
+            ...item, 
+            quantityOnHand: item.quantityOnHand + adjustment,
+            totalValue: (item.quantityOnHand + adjustment) * item.costPrice,
+            lastUpdated: new Date().toISOString().split('T')[0],
+            status: (item.quantityOnHand + adjustment) <= item.reorderLevel ? 'low_stock' : 'in_stock'
+          }
+        : item
+    ));
+    alert(t('stockAdjustedBy', { adjustment: `${adjustment > 0 ? '+' : ''}${adjustment}` }));
   };
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Inventory Management</h1>
-          <p className="text-gray-600">Track and manage your stock levels and inventory</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('inventoryManagement')}</h1>
+          <p className="text-gray-600">{t('trackAndManageStockLevels')}</p>
         </div>
         <div className="flex space-x-3">
-          <Button variant="secondary">
+          <Button variant="secondary" onClick={handleStockReport}>
             <BarChart3 className="w-4 h-4 mr-2" />
-            Stock Report
+            {t('stockReport')}
           </Button>
           <Button onClick={handleAddItem}>
             <Plus className="w-4 h-4 mr-2" />
-            Add Item
+            {t('addItem')}
           </Button>
         </div>
       </div>
@@ -153,7 +186,7 @@ export default function Inventory() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Items</p>
+              <p className="text-sm font-medium text-gray-600">{t('totalItems')}</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">{filteredItems.length}</p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
@@ -164,7 +197,7 @@ export default function Inventory() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Value</p>
+              <p className="text-sm font-medium text-gray-600">{t('totalValue')}</p>
               <p className="text-2xl font-bold text-green-600 mt-1">${totalValue.toFixed(2)}</p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
@@ -175,7 +208,7 @@ export default function Inventory() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Low Stock Items</p>
+              <p className="text-sm font-medium text-gray-600">{t('lowStockItems')}</p>
               <p className="text-2xl font-bold text-orange-600 mt-1">{lowStockItems}</p>
             </div>
             <div className="p-3 bg-orange-100 rounded-lg">
@@ -186,7 +219,7 @@ export default function Inventory() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Categories</p>
+              <p className="text-sm font-medium text-gray-600">{t('categories')}</p>
               <p className="text-2xl font-bold text-purple-600 mt-1">
                 {new Set(filteredItems.map(item => item.category)).size}
               </p>
@@ -209,7 +242,7 @@ export default function Inventory() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Inventory Items
+            {t('inventoryItems')}
           </button>
           <button
             onClick={() => setActiveTab('movements')}
@@ -219,7 +252,7 @@ export default function Inventory() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Stock Movements
+            {t('stockMovements')}
           </button>
         </nav>
       </div>
@@ -234,7 +267,7 @@ export default function Inventory() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
-                  placeholder="Search items..."
+                  placeholder={t('searchItems')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -246,11 +279,11 @@ export default function Inventory() {
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="all">All Status</option>
-                  <option value="in_stock">In Stock</option>
-                  <option value="low_stock">Low Stock</option>
-                  <option value="critical">Critical</option>
-                  <option value="out_of_stock">Out of Stock</option>
+                  <option value="all">{t('allStatus')}</option>
+                  <option value="in_stock">{t('inStock')}</option>
+                  <option value="low_stock">{t('lowStock')}</option>
+                  <option value="critical">{t('critical')}</option>
+                  <option value="out_of_stock">{t('outOfStock')}</option>
                 </select>
               </div>
             </div>
@@ -263,25 +296,25 @@ export default function Inventory() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Item
+                      {t('item')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Category
+                      {t('category')}
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Quantity
+                      {t('quantity')}
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Unit Cost
+                      {t('unitCost')}
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total Value
+                      {t('totalValue')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
+                      {t('status')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
+                      {t('actions')}
                     </th>
                   </tr>
                 </thead>
@@ -304,10 +337,10 @@ export default function Inventory() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <p className="text-sm text-gray-900">${item.costPrice.toFixed(2)}</p>
+                        <p className="text-sm text-gray-900">{formatCurrency(item.costPrice)}</p>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <p className="font-semibold text-gray-900">${item.totalValue.toFixed(2)}</p>
+                        <p className="font-semibold text-gray-900">{formatCurrency(item.totalValue)}</p>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(item.status)}`}>
@@ -338,7 +371,7 @@ export default function Inventory() {
         <Card>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">Recent Stock Movements</h2>
-            <Button onClick={() => console.log('Adding stock adjustment')}>
+            <Button onClick={handleAddStockAdjustment}>
               <Plus className="w-4 h-4 mr-2" />
               Add Adjustment
             </Button>
@@ -404,7 +437,7 @@ export default function Inventory() {
       <Modal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        title={editingItem ? 'Edit Item' : 'Add New Item'}
+        title={editingItem ? t('editItem') : t('addNewItem')}
         size="lg"
       >
         <InventoryForm

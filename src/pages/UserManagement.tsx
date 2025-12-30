@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Plus, Search, Users, Shield, Key, Mail, Phone, Edit, Trash2, UserPlus, Settings, Lock, Unlock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
 import UserForm from '../components/Forms/UserForm';
 import RoleForm from '../components/Forms/RoleForm';
+import { useGlobalState } from '../contexts/GlobalStateContext';
 
 const mockUsers = [
   {
@@ -162,6 +164,8 @@ const mockAuditLogs = [
 ];
 
 export default function UserManagement() {
+  const { showNotification } = useGlobalState();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('users');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -241,7 +245,7 @@ export default function UserManagement() {
   };
 
   const handleResendInvitation = (userId: number) => {
-    console.log('Resending invitation to user:', userId);
+    showNotification('Invitation resent successfully', 'success');
   };
 
   // Role CRUD Operations
@@ -269,11 +273,11 @@ export default function UserManagement() {
   const handleDeleteRole = (roleId: number) => {
     const role = roles.find(r => r.id === roleId);
     if (role?.isSystemRole) {
-      alert('Cannot delete system roles');
+      showNotification('Cannot delete system roles', 'error');
       return;
     }
     if (role?.userCount > 0) {
-      alert('Cannot delete role with assigned users');
+      showNotification('Cannot delete role with assigned users', 'error');
       return;
     }
     if (confirm('Are you sure you want to delete this role?')) {
@@ -290,7 +294,7 @@ export default function UserManagement() {
           <p className="text-gray-600">Manage users, roles, permissions, and security settings</p>
         </div>
         <div className="flex space-x-3">
-          <Button variant="secondary" onClick={() => console.log('Opening security settings')}>
+          <Button variant="secondary" onClick={() => navigate('/settings')}>
             <Shield className="w-4 h-4 mr-2" />
             Security Settings
           </Button>
@@ -585,11 +589,11 @@ export default function UserManagement() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">Audit Logs</h2>
             <div className="flex space-x-3">
-              <Button variant="secondary" onClick={() => console.log('Exporting audit logs')}>
+              <Button variant="secondary" onClick={() => showNotification('Audit logs exported successfully', 'success')}>
                 <Download className="w-4 h-4 mr-2" />
                 Export Logs
               </Button>
-              <Button variant="secondary" onClick={() => console.log('Configuring audit settings')}>
+              <Button variant="secondary" onClick={() => navigate('/settings')}>
                 <Settings className="w-4 h-4 mr-2" />
                 Audit Settings
               </Button>

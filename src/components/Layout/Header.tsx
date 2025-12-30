@@ -1,7 +1,9 @@
 import React from 'react';
-import { Menu, Bell, Search } from 'lucide-react';
+import { Menu, Search } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useGlobalState } from '../../contexts/GlobalStateContext';
 import UserMenu from '../UI/UserMenu';
+import NotificationDropdown from '../UI/NotificationDropdown';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -9,6 +11,9 @@ interface HeaderProps {
 
 export default function Header({ onMenuClick }: HeaderProps) {
   const { user } = useAuth();
+  const { state } = useGlobalState();
+
+  const unreadCount = state.notifications.filter(n => !n.read).length;
 
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4">
@@ -34,10 +39,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         </div>
 
         <div className="flex items-center space-x-4">
-          <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
+          <NotificationDropdown unreadCount={unreadCount} />
 
           {user && <UserMenu user={user} />}
         </div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Search, Settings, Play, Pause, CheckCircle, Clock, Users, Package } from 'lucide-react';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
+import { useGlobalState } from '../contexts/GlobalStateContext';
 
 const mockWorkOrders = [
   {
@@ -98,6 +99,7 @@ const mockProductionSchedule = [
 ];
 
 export default function Manufacturing() {
+  const { formatCurrency } = useGlobalState();
   const [activeTab, setActiveTab] = useState('workorders');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -329,7 +331,7 @@ export default function Manufacturing() {
                       {workOrder.startDate} - {workOrder.dueDate}
                     </div>
                     <div className="text-sm text-gray-600">
-                      Cost: ${workOrder.actualCost.toLocaleString()} / ${workOrder.estimatedCost.toLocaleString()}
+                      Cost: {formatCurrency(workOrder.actualCost)} / {formatCurrency(workOrder.estimatedCost)}
                     </div>
                   </div>
 

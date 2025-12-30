@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Plus, Search, TrendingUp, TrendingDown, Target, BarChart3, Calendar, DollarSign, Percent, AlertTriangle, Edit, Eye, Copy, Trash2, Calculator } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
 import BudgetForm from '../components/Forms/BudgetForm';
+import { useGlobalState } from '../contexts/GlobalStateContext';
 
 const mockBudgets = [
   {
@@ -92,11 +94,14 @@ const mockForecast = [
 ];
 
 export default function Budgeting() {
+  const { formatCurrency } = useGlobalState();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('budgets');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [budgets, setBudgets] = useState(mockBudgets);
   const [showModal, setShowModal] = useState(false);
+  const [showTemplatesModal, setShowTemplatesModal] = useState(false);
   const [editingBudget, setEditingBudget] = useState<any>(null);
 
   const filteredBudgets = budgets.filter(budget => {
@@ -183,11 +188,11 @@ export default function Budgeting() {
           <p className="text-gray-600">Create budgets, track spending, and analyze financial performance</p>
         </div>
         <div className="flex space-x-3">
-          <Button variant="secondary" onClick={() => console.log('Opening budget templates')}>
+          <Button variant="secondary" onClick={() => setShowTemplatesModal(true)}>
             <Target className="w-4 h-4 mr-2" />
             Budget Templates
           </Button>
-          <Button variant="secondary" onClick={() => console.log('Generating budget reports')}>
+          <Button variant="secondary" onClick={() => navigate('/reports')}>
             <BarChart3 className="w-4 h-4 mr-2" />
             Budget Reports
           </Button>
@@ -204,7 +209,7 @@ export default function Budgeting() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Budgeted</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">${totalBudgeted.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(totalBudgeted)}</p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
               <Target className="w-6 h-6 text-blue-600" />
@@ -215,7 +220,7 @@ export default function Budgeting() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Actual Spent</p>
-              <p className="text-2xl font-bold text-orange-600 mt-1">${totalActual.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-orange-600 mt-1">{formatCurrency(totalActual)}</p>
             </div>
             <div className="p-3 bg-orange-100 rounded-lg">
               <DollarSign className="w-6 h-6 text-orange-600" />
@@ -227,7 +232,7 @@ export default function Budgeting() {
             <div>
               <p className="text-sm font-medium text-gray-600">Variance</p>
               <p className={`text-2xl font-bold mt-1 ${getVarianceColor(totalVariance)}`}>
-                ${Math.abs(totalVariance).toLocaleString()}
+                {formatCurrency(Math.abs(totalVariance))}
               </p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
@@ -257,7 +262,7 @@ export default function Budgeting() {
         <Card>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Budget Alerts</h2>
-            <Button variant="secondary" size="sm" onClick={() => console.log('Managing alert settings')}>
+            <Button variant="secondary" size="sm" onClick={() => navigate('/settings')}>
               Configure Alerts
             </Button>
           </div>
@@ -362,7 +367,7 @@ export default function Budgeting() {
                       </span>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-bold text-gray-900">${budget.totalBudget.toLocaleString()}</p>
+                      <p className="text-lg font-bold text-gray-900">{formatCurrency(budget.totalBudget)}</p>
                       <p className="text-sm text-gray-500">Total Budget</p>
                     </div>
                   </div>
@@ -370,12 +375,12 @@ export default function Budgeting() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-gray-600">Actual Spent</p>
-                      <p className="font-semibold text-orange-600">${budget.actualSpent.toLocaleString()}</p>
+                      <p className="font-semibold text-orange-600">{formatCurrency(budget.actualSpent)}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Remaining</p>
                       <p className={`font-semibold ${getVarianceColor(budget.variance)}`}>
-                        ${Math.abs(budget.variance).toLocaleString()}
+                        {formatCurrency(Math.abs(budget.variance))}
                       </p>
                     </div>
                   </div>
@@ -405,8 +410,8 @@ export default function Budgeting() {
                         <div key={index} className="flex justify-between text-sm">
                           <span className="text-gray-600">{category.name}</span>
                           <div className="text-right">
-                            <span className="font-medium text-gray-900">${category.actual.toLocaleString()}</span>
-                            <span className="text-gray-500"> / ${category.budgeted.toLocaleString()}</span>
+                            <span className="font-medium text-gray-900">{formatCurrency(category.actual)}</span>
+                            <span className="text-gray-500"> / {formatCurrency(category.budgeted)}</span>
                           </div>
                         </div>
                       ))}
@@ -464,14 +469,14 @@ export default function Budgeting() {
                         <p className="font-medium text-gray-900">{category.name}</p>
                       </td>
                       <td className="px-4 py-4 text-right">
-                        <p className="text-sm text-gray-900">${category.budgeted.toLocaleString()}</p>
+                        <p className="text-sm text-gray-900">{formatCurrency(category.budgeted)}</p>
                       </td>
                       <td className="px-4 py-4 text-right">
-                        <p className="text-sm text-gray-900">${category.actual.toLocaleString()}</p>
+                        <p className="text-sm text-gray-900">{formatCurrency(category.actual)}</p>
                       </td>
                       <td className="px-4 py-4 text-right">
                         <p className={`text-sm font-medium ${getVarianceColor(category.variance)}`}>
-                          ${Math.abs(category.variance).toLocaleString()}
+                          {formatCurrency(Math.abs(category.variance))}
                         </p>
                       </td>
                       <td className="px-4 py-4 text-right">
@@ -493,7 +498,7 @@ export default function Budgeting() {
         <Card>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">Budget Forecasting</h2>
-            <Button onClick={() => console.log('Updating forecast')}>
+            <Button onClick={() => navigate('/cash-flow')}>
               <Calculator className="w-4 h-4 mr-2" />
               Update Forecast
             </Button>
@@ -517,16 +522,16 @@ export default function Budgeting() {
                       <p className="font-medium text-gray-900">{forecast.month}</p>
                     </td>
                     <td className="px-4 py-4 text-right">
-                      <p className="text-sm text-gray-900">${forecast.projected.toLocaleString()}</p>
+                      <p className="text-sm text-gray-900">{formatCurrency(forecast.projected)}</p>
                     </td>
                     <td className="px-4 py-4 text-right">
                       <p className="text-sm text-gray-900">
-                        {forecast.actual > 0 ? `$${forecast.actual.toLocaleString()}` : 'TBD'}
+                        {forecast.actual > 0 ? formatCurrency(forecast.actual) : 'TBD'}
                       </p>
                     </td>
                     <td className="px-4 py-4 text-right">
                       <p className="text-sm text-gray-900">
-                        {forecast.actual > 0 ? `$${Math.abs(forecast.variance).toLocaleString()}` : '-'}
+                        {forecast.actual > 0 ? formatCurrency(Math.abs(forecast.variance)) : '-'}
                       </p>
                     </td>
                     <td className="px-4 py-4 text-right">
@@ -553,6 +558,39 @@ export default function Budgeting() {
           onSubmit={handleSubmitBudget}
           onCancel={() => setShowModal(false)}
         />
+      </Modal>
+
+      <Modal
+        isOpen={showTemplatesModal}
+        onClose={() => setShowTemplatesModal(false)}
+        title="Budget Templates"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">Choose a budget template to get started quickly:</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                 onClick={() => { setShowTemplatesModal(false); handleAddBudget(); }}>
+              <h3 className="font-medium text-gray-900">Monthly Operating Budget</h3>
+              <p className="text-sm text-gray-600">Standard monthly budget for operating expenses</p>
+            </div>
+            <div className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                 onClick={() => { setShowTemplatesModal(false); handleAddBudget(); }}>
+              <h3 className="font-medium text-gray-900">Project Budget</h3>
+              <p className="text-sm text-gray-600">Budget template for specific projects</p>
+            </div>
+            <div className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                 onClick={() => { setShowTemplatesModal(false); handleAddBudget(); }}>
+              <h3 className="font-medium text-gray-900">Department Budget</h3>
+              <p className="text-sm text-gray-600">Budget for departmental expenses</p>
+            </div>
+            <div className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                 onClick={() => { setShowTemplatesModal(false); handleAddBudget(); }}>
+              <h3 className="font-medium text-gray-900">Custom Budget</h3>
+              <p className="text-sm text-gray-600">Start with a blank budget</p>
+            </div>
+          </div>
+        </div>
       </Modal>
     </div>
   );

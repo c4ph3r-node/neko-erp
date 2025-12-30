@@ -6,6 +6,7 @@ import Modal from '../components/UI/Modal';
 import AccountForm from '../components/Forms/AccountForm';
 import JournalEntryForm from '../components/Forms/JournalEntryForm';
 import { useGlobalState } from '../contexts/GlobalStateContext';
+import { getCountryTaxConfig } from '../lib/eastAfricanTaxConfigs';
 
 export default function Accounting() {
   const { 
@@ -19,16 +20,23 @@ export default function Accounting() {
     reverseJournalEntry,
     generateReport,
     exportData,
-    submitToKra
+    submitToTaxAuthority,
+    showNotification,
+    formatCurrency,
+    t
   } = useGlobalState();
+
+  const currentTaxConfig = getCountryTaxConfig(state.taxSettings.countryCode);
 
   const [activeTab, setActiveTab] = useState('accounts');
   const [searchTerm, setSearchTerm] = useState('');
   const [accountTypeFilter, setAccountTypeFilter] = useState('all');
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [showJournalModal, setShowJournalModal] = useState(false);
+  const [showJournalViewModal, setShowJournalViewModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<any>(null);
   const [editingJournal, setEditingJournal] = useState<any>(null);
+  const [viewingJournal, setViewingJournal] = useState<any>(null);
 
   const filteredAccounts = state.accounts.filter(account => {
     const matchesSearch = account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -86,8 +94,10 @@ export default function Accounting() {
   const handleSubmitAccount = (accountData: any) => {
     if (editingAccount) {
       updateAccount(editingAccount.id, accountData);
+      showNotification(t('accountUpdatedSuccessfully'), 'success', 'system');
     } else {
       addAccount(accountData);
+      showNotification(t('accountCreatedSuccessfully'), 'success', 'system');
     }
     setShowAccountModal(false);
     setEditingAccount(null);
@@ -96,11 +106,12 @@ export default function Accounting() {
   const handleDeleteAccount = (accountId: string) => {
     const account = state.accounts.find(a => a.id === accountId);
     if (account?.balance !== 0) {
-      alert('Cannot delete account with non-zero balance. Current balance: KES ' + account.balance.toLocaleString());
+      alert(t('cannotDeleteAccountWithBalance') + formatCurrency(account.balance));
       return;
     }
-    if (confirm('Are you sure you want to delete this account? This action cannot be undone.')) {
+    if (confirm(t('confirmDeleteAccount'))) {
       deleteAccount(accountId);
+      showNotification(t('accountDeletedSuccessfully'), 'success', 'system');
     }
   };
 
@@ -112,7 +123,7 @@ export default function Accounting() {
 
   const handleEditJournalEntry = (entry: any) => {
     if (entry.status === 'posted') {
-      alert('Cannot edit posted journal entries. Please reverse and create a new entry.');
+      alert(t('cannotEditPostedEntries'));
       return;
     }
     setEditingJournal(entry);
@@ -122,19 +133,18 @@ export default function Accounting() {
   const handleViewJournalEntry = (entryId: string) => {
     const entry = state.journalEntries.find(je => je.id === entryId);
     if (entry) {
-      const details = entry.lines.map(line => 
-        `${line.accountCode} - ${line.accountName}: Dr ${line.debit.toLocaleString()} Cr ${line.credit.toLocaleString()}`
-      ).join('\n');
-      
-      alert(`Journal Entry Details:\n\nReference: ${entry.reference}\nDate: ${entry.date.toISOString().split('T')[0]}\nDescription: ${entry.description}\nStatus: ${entry.status}\nKRA Submitted: ${entry.kraSubmitted ? 'Yes' : 'No'}\n\nLines:\n${details}`);
+      setViewingJournal(entry);
+      setShowJournalViewModal(true);
     }
   };
 
   const handleSubmitJournalEntry = (entryData: any) => {
     if (editingJournal) {
       updateJournalEntry(editingJournal.id, entryData);
+      showNotification(t('journalEntryUpdatedSuccessfully'), 'success', 'system');
     } else {
       addJournalEntry(entryData);
+      showNotification(t('journalEntryCreatedSuccessfully'), 'success', 'system');
     }
     setShowJournalModal(false);
     setEditingJournal(null);
@@ -143,10 +153,10 @@ export default function Accounting() {
   const handleDeleteJournalEntry = (entryId: string) => {
     const entry = state.journalEntries.find(je => je.id === entryId);
     if (entry?.status === 'posted') {
-      alert('Cannot delete posted journal entries. Please reverse the entry instead.');
+      alert(t('cannotDeletePostedEntries'));
       return;
     }
-    if (confirm('Are you sure you want to delete this journal entry?')) {
+    if (confirm(t('confirmDeleteJournalEntry'))) {
       // Implementation for deleting journal entry
       console.log('Deleting journal entry:', entryId);
     }
@@ -155,6 +165,7 @@ export default function Accounting() {
   const handlePostJournalEntry = (entryId: string) => {
     if (confirm('Are you sure you want to post this journal entry? Posted entries cannot be edited.')) {
       postJournalEntry(entryId);
+      showNotification(t('journalEntryPostedSuccessfully'), 'success', 'system');
     }
   };
 
@@ -164,12 +175,39 @@ export default function Accounting() {
     }
   };
 
-  const handleSubmitToKra = async (entryId: string) => {
-    const success = await submitToKra('journal_entry', entryId);
+  const handleSubmitToTaxAuthority = async (entryId: string) => {
+    const success = await submitToTaxAuthority('journal_entry', entryId);
     if (success) {
-      alert('Journal entry successfully submitted to KRA eTIMS system');
+      showNotification(t('journalEntrySubmittedToKra'), 'success');
     } else {
-      alert('Failed to submit to KRA. Please check your internet connection and KRA credentials.');
+      showNotification(t('failedToSubmitToKra'), 'error');
+    }
+  };
+
+  const handleBulkSubmitToTaxAuthority = async () => {
+    const unsubmittedEntries = state.journalEntries.filter(je => !je.kraSubmitted && je.status === 'posted');
+    if (unsubmittedEntries.length === 0) {
+      showNotification(t('unsubmittedJournalEntries'), 'info');
+      return;
+    }
+
+    let successCount = 0;
+    let failureCount = 0;
+
+    for (const entry of unsubmittedEntries) {
+      const success = await submitToTaxAuthority('journal_entry', entry.id);
+      if (success) {
+        successCount++;
+      } else {
+        failureCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      showNotification(t('journalEntriesSubmittedToKra', { count: successCount }), 'success');
+    }
+    if (failureCount > 0) {
+      showNotification(`${failureCount} journal entries failed to submit to KRA`, 'error');
     }
   };
 
@@ -207,21 +245,21 @@ export default function Accounting() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">General Ledger & Accounting</h1>
-          <p className="text-gray-600">Comprehensive accounting system compliant with Kenyan IFRS and KRA requirements</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('generalLedgerAccounting')}</h1>
+          <p className="text-gray-600">{t('comprehensiveAccountingSystem')}</p>
         </div>
         <div className="flex space-x-3">
           <Button variant="secondary" onClick={handleGenerateTrialBalance}>
             <Calculator className="w-4 h-4 mr-2" />
-            Trial Balance
+            {t('trialBalance')}
           </Button>
           <Button variant="secondary" onClick={() => handleExportTrialBalance('pdf')}>
             <Download className="w-4 h-4 mr-2" />
-            Export TB
+            {t('exportTB')}
           </Button>
           <Button onClick={handleAddJournalEntry}>
             <Plus className="w-4 h-4 mr-2" />
-            Journal Entry
+            {t('journalEntry')}
           </Button>
         </div>
       </div>
@@ -232,13 +270,13 @@ export default function Accounting() {
           <div className="flex items-center p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
             <AlertTriangle className="w-5 h-5 text-yellow-600 mr-3" />
             <div>
-              <p className="font-medium text-yellow-800">KRA Submission Required</p>
+              <p className="font-medium text-yellow-800">{t('kraSubmissionRequired')}</p>
               <p className="text-sm text-yellow-700">
-                {kraUnsubmitted} posted journal entries need to be submitted to KRA eTIMS system for compliance.
+                {t('postedJournalEntriesNeedSubmission', { count: kraUnsubmitted })}
               </p>
             </div>
-            <Button size="sm" className="ml-auto" onClick={() => console.log('Bulk KRA submission')}>
-              Submit to KRA
+            <Button size="sm" className="ml-auto" onClick={handleBulkSubmitToTaxAuthority}>
+              {t('submitToKra')}
             </Button>
           </div>
         </Card>
@@ -249,8 +287,8 @@ export default function Accounting() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Assets</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">KES {totalAssets.toLocaleString()}</p>
+              <p className="text-sm font-medium text-gray-600">{t('totalAssets')}</p>
+              <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(totalAssets)}</p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
               <TrendingUp className="w-6 h-6 text-green-600" />
@@ -260,8 +298,8 @@ export default function Accounting() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Liabilities</p>
-              <p className="text-2xl font-bold text-red-600 mt-1">KES {totalLiabilities.toLocaleString()}</p>
+              <p className="text-sm font-medium text-gray-600">{t('totalLiabilities')}</p>
+              <p className="text-2xl font-bold text-red-600 mt-1">{formatCurrency(totalLiabilities)}</p>
             </div>
             <div className="p-3 bg-red-100 rounded-lg">
               <TrendingUp className="w-6 h-6 text-red-600 transform rotate-180" />
@@ -271,8 +309,8 @@ export default function Accounting() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Equity</p>
-              <p className="text-2xl font-bold text-blue-600 mt-1">KES {totalEquity.toLocaleString()}</p>
+              <p className="text-sm font-medium text-gray-600">{t('totalEquity')}</p>
+              <p className="text-2xl font-bold text-blue-600 mt-1">{formatCurrency(totalEquity)}</p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
               <BookOpen className="w-6 h-6 text-blue-600" />
@@ -282,8 +320,8 @@ export default function Accounting() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-              <p className="text-2xl font-bold text-purple-600 mt-1">KES {totalRevenue.toLocaleString()}</p>
+              <p className="text-sm font-medium text-gray-600">{t('totalRevenue')}</p>
+              <p className="text-2xl font-bold text-purple-600 mt-1">{formatCurrency(totalRevenue)}</p>
             </div>
             <div className="p-3 bg-purple-100 rounded-lg">
               <TrendingUp className="w-6 h-6 text-purple-600" />
@@ -293,7 +331,7 @@ export default function Accounting() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Unposted Entries</p>
+              <p className="text-sm font-medium text-gray-600">{t('unpostedEntries')}</p>
               <p className="text-2xl font-bold text-orange-600 mt-1">{unpostedEntries}</p>
             </div>
             <div className="p-3 bg-orange-100 rounded-lg">
@@ -314,7 +352,7 @@ export default function Accounting() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Chart of Accounts ({state.accounts.length})
+            {t('chartOfAccounts', { count: state.accounts.length })}
           </button>
           <button
             onClick={() => setActiveTab('journal')}
@@ -324,7 +362,7 @@ export default function Accounting() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Journal Entries ({state.journalEntries.length})
+            {t('journalEntries', { count: state.journalEntries.length })}
           </button>
           <button
             onClick={() => setActiveTab('trial_balance')}
@@ -334,7 +372,7 @@ export default function Accounting() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Trial Balance
+            {t('trialBalanceTab')}
           </button>
           <button
             onClick={() => setActiveTab('kra_compliance')}
@@ -344,7 +382,7 @@ export default function Accounting() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            KRA Compliance
+            {t('kraCompliance')}
           </button>
         </nav>
       </div>
@@ -358,7 +396,7 @@ export default function Accounting() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
-                  placeholder="Search accounts..."
+                  placeholder={t('searchAccounts')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -370,24 +408,24 @@ export default function Accounting() {
                   onChange={(e) => setAccountTypeFilter(e.target.value)}
                   className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="all">All Types</option>
-                  <option value="Asset">Assets</option>
-                  <option value="Liability">Liabilities</option>
-                  <option value="Equity">Equity</option>
-                  <option value="Revenue">Revenue</option>
-                  <option value="Expense">Expenses</option>
+                  <option value="all">{t('allTypes')}</option>
+                  <option value="Asset">{t('assets')}</option>
+                  <option value="Liability">{t('liabilities')}</option>
+                  <option value="Equity">{t('equity')}</option>
+                  <option value="Revenue">{t('revenue')}</option>
+                  <option value="Expense">{t('expenses')}</option>
                 </select>
                 <Button variant="secondary" onClick={() => handleExportAccounts('csv')}>
                   <Download className="w-4 h-4 mr-2" />
-                  Export CSV
+                  {t('exportCsv')}
                 </Button>
                 <Button variant="secondary" onClick={() => handleExportAccounts('excel')}>
                   <FileText className="w-4 h-4 mr-2" />
-                  Export Excel
+                  {t('exportExcel')}
                 </Button>
                 <Button onClick={handleAddAccount}>
                   <Plus className="w-4 h-4 mr-2" />
-                  Add Account
+                  {t('addAccount')}
                 </Button>
               </div>
             </div>
@@ -399,22 +437,22 @@ export default function Accounting() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Account Code
+                      {t('accountCode')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Account Name
+                      {t('accountName')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Type
+                      {t('type')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      KRA Category
+                      {t('kraCategory')}
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Balance (KES)
+                      {t('balanceKes')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
+                      {t('actions')}
                     </th>
                   </tr>
                 </thead>
@@ -442,7 +480,7 @@ export default function Accounting() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <p className={`font-semibold ${getBalanceColor(account.balance, account.type)}`}>
-                          {Math.abs(account.balance).toLocaleString()}
+                          {formatCurrency(Math.abs(account.balance))}
                         </p>
                       </td>
                       <td className="px-6 py-4">
@@ -450,21 +488,21 @@ export default function Accounting() {
                           <button 
                             onClick={() => handleViewAccount(account.id)}
                             className="p-1 text-gray-500 hover:text-blue-600"
-                            title="View Account Details"
+                            title={t('viewAccountDetails')}
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button 
                             onClick={() => handleEditAccount(account)}
                             className="p-1 text-gray-500 hover:text-blue-600"
-                            title="Edit Account"
+                            title={t('editAccount')}
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button 
                             onClick={() => handleDeleteAccount(account.id)}
                             className="p-1 text-gray-500 hover:text-red-600"
-                            title="Delete Account"
+                            title={t('deleteAccount')}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -488,7 +526,7 @@ export default function Accounting() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
-                  placeholder="Search journal entries..."
+                  placeholder={t('searchJournalEntries')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -497,15 +535,15 @@ export default function Accounting() {
               <div className="flex space-x-3">
                 <Button variant="secondary" onClick={() => handleExportJournalEntries('csv')}>
                   <Download className="w-4 h-4 mr-2" />
-                  Export CSV
+                  {t('exportCsv')}
                 </Button>
                 <Button variant="secondary" onClick={() => handleExportJournalEntries('excel')}>
                   <FileText className="w-4 h-4 mr-2" />
-                  Export Excel
+                  {t('exportExcel')}
                 </Button>
                 <Button onClick={handleAddJournalEntry}>
                   <Plus className="w-4 h-4 mr-2" />
-                  New Journal Entry
+                  {t('newJournalEntry')}
                 </Button>
               </div>
             </div>
@@ -517,25 +555,25 @@ export default function Accounting() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
+                      {t('date')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Reference
+                      {t('reference')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Description
+                      {t('description')}
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total (KES)
+                      {t('totalKes')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
+                      {t('status')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      KRA Status
+                      {t('kraStatus')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
+                      {t('actions')}
                     </th>
                   </tr>
                 </thead>
@@ -576,7 +614,7 @@ export default function Accounting() {
                           <button 
                             onClick={() => handleViewJournalEntry(entry.id)}
                             className="p-1 text-gray-500 hover:text-blue-600"
-                            title="View Entry Details"
+                            title={t('viewEntryDetails')}
                           >
                             <Eye className="w-4 h-4" />
                           </button>
@@ -585,21 +623,21 @@ export default function Accounting() {
                               <button 
                                 onClick={() => handleEditJournalEntry(entry)}
                                 className="p-1 text-gray-500 hover:text-blue-600"
-                                title="Edit Entry"
+                                title={t('editEntry')}
                               >
                                 <Edit className="w-4 h-4" />
                               </button>
                               <button 
                                 onClick={() => handlePostJournalEntry(entry.id)}
                                 className="p-1 text-gray-500 hover:text-green-600"
-                                title="Post Entry"
+                                title={t('postEntry')}
                               >
                                 <CheckCircle className="w-4 h-4" />
                               </button>
                               <button 
                                 onClick={() => handleDeleteJournalEntry(entry.id)}
                                 className="p-1 text-gray-500 hover:text-red-600"
-                                title="Delete Entry"
+                                title={t('deleteEntry')}
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -610,15 +648,15 @@ export default function Accounting() {
                               <button 
                                 onClick={() => handleReverseJournalEntry(entry.id)}
                                 className="p-1 text-gray-500 hover:text-orange-600"
-                                title="Reverse Entry"
+                                title={t('reverseEntry')}
                               >
                                 <ArrowUpDown className="w-4 h-4" />
                               </button>
                               {!entry.kraSubmitted && (
                                 <button 
-                                  onClick={() => handleSubmitToKra(entry.id)}
+                                  onClick={() => handleSubmitToTaxAuthority(entry.id)}
                                   className="p-1 text-gray-500 hover:text-purple-600"
-                                  title="Submit to KRA"
+                                  title={t('submitToKraAction')}
                                 >
                                   <Building2 className="w-4 h-4" />
                                 </button>
@@ -640,23 +678,23 @@ export default function Accounting() {
       {activeTab === 'trial_balance' && (
         <Card>
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">Trial Balance - {new Date().toLocaleDateString()}</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('trialBalanceTab')} - {new Date().toLocaleDateString()}</h2>
             <div className="flex space-x-3">
               <Button variant="secondary" onClick={() => handleExportTrialBalance('csv')}>
                 <Download className="w-4 h-4 mr-2" />
-                Export CSV
+                {t('exportCsv')}
               </Button>
               <Button variant="secondary" onClick={() => handleExportTrialBalance('excel')}>
                 <FileText className="w-4 h-4 mr-2" />
-                Export Excel
+                {t('exportExcel')}
               </Button>
               <Button variant="secondary" onClick={() => handleExportTrialBalance('pdf')}>
                 <FileText className="w-4 h-4 mr-2" />
-                Export PDF
+                {t('exportPdf')}
               </Button>
               <Button onClick={handleGenerateTrialBalance}>
                 <Calculator className="w-4 h-4 mr-2" />
-                Refresh
+                {t('refresh')}
               </Button>
             </div>
           </div>
@@ -666,19 +704,19 @@ export default function Accounting() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Account Code
+                    {t('accountCode')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Account Name
+                    {t('accountName')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
+                    {t('type')}
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Debit (KES)
+                    {t('debitKes')}
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Credit (KES)
+                    {t('creditKes')}
                   </th>
                 </tr>
               </thead>
@@ -734,35 +772,35 @@ export default function Accounting() {
         <div className="space-y-6">
           <Card>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">KRA Compliance Dashboard</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('kraComplianceDashboard')}</h2>
               <div className="flex space-x-3">
-                <Button variant="secondary" onClick={() => console.log('Bulk KRA submission')}>
+                <Button variant="secondary" onClick={handleBulkSubmitToTaxAuthority}>
                   <Building2 className="w-4 h-4 mr-2" />
-                  Bulk Submit to KRA
+                  {t('bulkSubmitToKra')}
                 </Button>
-                <Button onClick={() => console.log('KRA settings')}>
+                <Button onClick={() => navigate('/tax-compliance')}>
                   <Calculator className="w-4 h-4 mr-2" />
-                  KRA Settings
+                  {t('kraSettings')}
                 </Button>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
               <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm font-medium text-blue-600">KRA PIN</p>
-                <p className="text-lg font-bold text-blue-900">{state.kenyanTaxSettings.kraPin}</p>
+                <p className="text-sm font-medium text-blue-600">{t('kraPin')}</p>
+                <p className="text-lg font-bold text-blue-900">{state.taxSettings.taxRegistrationNumber}</p>
               </div>
               <div className="text-center p-4 bg-green-50 rounded-lg">
-                <p className="text-sm font-medium text-green-600">VAT Registration</p>
-                <p className="text-lg font-bold text-green-900">{state.kenyanTaxSettings.vatRegistrationNumber}</p>
+                <p className="text-sm font-medium text-green-600">{t('vatRegistration')}</p>
+                <p className="text-lg font-bold text-green-900">{state.taxSettings.vatRegistrationNumber}</p>
               </div>
               <div className="text-center p-4 bg-yellow-50 rounded-lg">
-                <p className="text-sm font-medium text-yellow-600">Pending Submissions</p>
+                <p className="text-sm font-medium text-yellow-600">{t('pendingSubmissions')}</p>
                 <p className="text-lg font-bold text-yellow-900">{kraUnsubmitted}</p>
               </div>
               <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <p className="text-sm font-medium text-purple-600">VAT Rate</p>
-                <p className="text-lg font-bold text-purple-900">{state.kenyanTaxSettings.vatRate}%</p>
+                <p className="text-sm font-medium text-purple-600">{t('vatRate')}</p>
+                <p className="text-lg font-bold text-purple-900">{currentTaxConfig?.vatRate || 16}%</p>
               </div>
             </div>
 
@@ -804,7 +842,7 @@ export default function Accounting() {
                         <div className="flex items-center space-x-2">
                           {!entry.kraSubmitted && (
                             <button 
-                              onClick={() => handleSubmitToKra(entry.id)}
+                              onClick={() => handleSubmitToTaxAuthority(entry.id)}
                               className="p-1 text-gray-500 hover:text-green-600"
                               title="Submit to KRA"
                             >
@@ -833,7 +871,7 @@ export default function Accounting() {
       <Modal
         isOpen={showAccountModal}
         onClose={() => setShowAccountModal(false)}
-        title={editingAccount ? 'Edit Account' : 'Add New Account'}
+        title={editingAccount ? t('editAccount') : t('addAccount')}
         size="lg"
       >
         <AccountForm
@@ -846,7 +884,7 @@ export default function Accounting() {
       <Modal
         isOpen={showJournalModal}
         onClose={() => setShowJournalModal(false)}
-        title={editingJournal ? 'Edit Journal Entry' : 'New Journal Entry'}
+        title={editingJournal ? t('editEntry') : t('newJournalEntry')}
         size="xl"
       >
         <JournalEntryForm
@@ -855,6 +893,65 @@ export default function Accounting() {
           onSubmit={handleSubmitJournalEntry}
           onCancel={() => setShowJournalModal(false)}
         />
+      </Modal>
+
+      <Modal
+        isOpen={showJournalViewModal}
+        onClose={() => setShowJournalViewModal(false)}
+        title={t('journalEntryDetails')}
+        size="lg"
+      >
+        {viewingJournal && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{t('reference')}</label>
+                <p className="mt-1 text-sm text-gray-900">{viewingJournal.reference}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{t('date')}</label>
+                <p className="mt-1 text-sm text-gray-900">{new Date(viewingJournal.date).toLocaleDateString()}</p>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700">{t('description')}</label>
+                <p className="mt-1 text-sm text-gray-900">{viewingJournal.description}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{t('status')}</label>
+                <p className="mt-1 text-sm text-gray-900">{viewingJournal.status}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{t('kraSubmitted')}</label>
+                <p className="mt-1 text-sm text-gray-900">{viewingJournal.kraSubmitted ? t('yes') : t('no')}</p>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('lines')}</label>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('accountCode')}</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('accountName')}</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{t('debit')}</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{t('credit')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {viewingJournal.lines.map((line: any, index: number) => (
+                      <tr key={index}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{line.accountCode}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{line.accountName}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">{formatCurrency(line.debit)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">{formatCurrency(line.credit)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

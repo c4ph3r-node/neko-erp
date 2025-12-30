@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Plus, Search, Play, Pause, Settings, Zap, Clock, CheckCircle, AlertTriangle, Users, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
+import { useGlobalState } from '../contexts/GlobalStateContext';
 
 const mockWorkflows = [
   {
@@ -129,6 +131,8 @@ const workflowTemplates = [
 ];
 
 export default function WorkflowAutomation() {
+  const { showNotification } = useGlobalState();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('workflows');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -164,15 +168,15 @@ export default function WorkflowAutomation() {
 
   const handleToggleWorkflow = (workflowId: number, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'paused' : 'active';
-    console.log(`Toggling workflow ${workflowId} to ${newStatus}`);
+    showNotification(`Workflow ${newStatus === 'active' ? 'activated' : 'paused'} successfully`, 'success');
   };
 
   const handleApproveInstance = (instanceId: number) => {
-    console.log('Approving workflow instance:', instanceId);
+    showNotification('Workflow instance approved successfully', 'success');
   };
 
   const handleRejectInstance = (instanceId: number) => {
-    console.log('Rejecting workflow instance:', instanceId);
+    showNotification('Workflow instance rejected', 'success');
   };
 
   const totalWorkflows = filteredWorkflows.length;

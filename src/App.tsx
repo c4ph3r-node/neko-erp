@@ -8,7 +8,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
 import Vendors from './pages/Vendors';
-// import Invoices from './pages/Invoices';
+import Invoices from './pages/Invoices';
 import Inventory from './pages/Inventory';
 import Banking from './pages/Banking';
 import Projects from './pages/Projects';
@@ -30,6 +30,7 @@ import UserManagement from './pages/UserManagement';
 import GeneralLedger from './pages/GeneralLedger';
 import Layout from './components/Layout/Layout';
 import LoadingSpinner from './components/UI/LoadingSpinner';
+import NotificationContainer from './components/UI/NotificationContainer';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -50,7 +51,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/dashboard" />} />
+      <Route path="/" element={user ? <Navigate to="/dashboard" /> : <LandingPage />} />
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
       <Route path="/dashboard" element={
         <ProtectedRoute>
@@ -73,13 +74,13 @@ function AppRoutes() {
           </Layout>
         </ProtectedRoute>
       } />
-      {/* <Route path="/invoices" element={
+      <Route path="/invoices" element={
         <ProtectedRoute>
           <Layout>
             <Invoices />
           </Layout>
         </ProtectedRoute>
-      } /> */}
+      } />
       <Route path="/inventory" element={
         <ProtectedRoute>
           <Layout>
@@ -145,7 +146,9 @@ function AppRoutes() {
       } />
       <Route path="/general-ledger" element={
         <ProtectedRoute>
-          <GeneralLedger />
+          <Layout>
+            <GeneralLedger />
+          </Layout>
         </ProtectedRoute>
       } />
       <Route path="/reports" element={
@@ -222,6 +225,7 @@ function App() {
         <TenantProvider>
           <GlobalStateProvider>
             <div className="min-h-screen bg-gray-50">
+              <NotificationContainer />
               <AppRoutes />
             </div>
           </GlobalStateProvider>

@@ -9,6 +9,23 @@ export interface User {
   tenantId: string;
   avatar?: string;
   permissions: string[];
+  notificationPreferences?: {
+    email: boolean;
+    inApp: boolean;
+    categories: {
+      system: boolean;
+      user: boolean;
+      financial: boolean;
+      compliance: boolean;
+      workflow: boolean;
+    };
+    priorities: {
+      low: boolean;
+      medium: boolean;
+      high: boolean;
+      critical: boolean;
+    };
+  };
 }
 
 interface AuthContextType {
@@ -57,7 +74,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: 'admin',
         tenantId: 'tenant1',
         avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=32&h=32&dpr=2',
-        permissions: ['all']
+        permissions: ['all'],
+        notificationPreferences: {
+          email: true,
+          inApp: true,
+          categories: {
+            system: true,
+            user: true,
+            financial: true,
+            compliance: true,
+            workflow: true
+          },
+          priorities: {
+            low: false,
+            medium: true,
+            high: true,
+            critical: true
+          }
+        }
       };
       
       setUser(mockUser);

@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
-import { Save, Building2, Users, Lock, CreditCard, Globe, Clock, Languages, DollarSign } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Save, Building2, Users, Lock, CreditCard, Globe, Clock, Languages, DollarSign, Bell } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import { useTenant } from '../contexts/TenantContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useGlobalState } from '../contexts/GlobalStateContext';
 
 const worldCurrencies = [
+  { code: 'KES', name: 'Kenyan Shilling', symbol: 'KES' },
   { code: 'USD', name: 'US Dollar', symbol: '$' },
   { code: 'EUR', name: 'Euro', symbol: '€' },
   { code: 'GBP', name: 'British Pound', symbol: '£' },
@@ -85,35 +88,144 @@ const worldTimezones = [
 export default function Settings() {
   const { tenant } = useTenant();
   const { user } = useAuth();
+  const { showNotification, dispatch } = useGlobalState();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('company');
-  const [companySettings, setCompanySettings] = useState({
-    name: tenant?.name || 'Acme Corporation',
-    industry: 'Technology',
-    currency: tenant?.settings.currency || 'USD',
-    language: tenant?.settings.language || 'en',
-    timezone: tenant?.settings.timezone || 'America/New_York',
-    fiscalYearStart: tenant?.settings.fiscalYearStart || '01/01',
-    dateFormat: tenant?.settings.dateFormat || 'MM/dd/yyyy',
-    address: '123 Business Street, City, State 12345',
-    phone: '+1 (555) 123-4567',
-    email: 'contact@company.com',
-    website: 'https://company.com',
-    taxNumber: 'TAX123456789'
-  });
 
-  const [securitySettings, setSecuritySettings] = useState({
-    sessionTimeout: 30,
-    loginNotifications: true,
-    twoFactorRequired: false,
-    passwordExpiry: 90,
-    maxLoginAttempts: 5,
-    ipWhitelist: '',
-    auditLogRetention: 365
-  });
+  // Load settings from localStorage or use defaults
+  const loadSettings = () => {
+    const savedSettings = localStorage.getItem('erpSettings');
+    if (savedSettings) {
+      return JSON.parse(savedSettings);
+    }
+    return {
+      company: {
+        name: tenant?.name || 'Acme Corporation',
+        industry: 'Technology',
+        currency: tenant?.settings?.currency || 'USD',
+        language: tenant?.settings?.language || 'en',
+        timezone: tenant?.settings?.timezone || 'America/New_York',
+        fiscalYearStart: tenant?.settings?.fiscalYearStart || '01/01',
+        dateFormat: tenant?.settings?.dateFormat || 'MM/dd/yyyy',
+        address: '123 Business Street, City, State 12345',
+        phone: '+1 (555) 123-4567',
+        email: 'contact@company.com',
+        website: 'https://company.com',
+        taxNumber: 'TAX123456789'
+      },
+      security: {
+        sessionTimeout: 30,
+        loginNotifications: true,
+        twoFactorRequired: false,
+        passwordExpiry: 90,
+        maxLoginAttempts: 5,
+        ipWhitelist: '',
+        auditLogRetention: 365
+      },
+      localization: {
+        currency: tenant?.settings?.currency || 'USD',
+        language: tenant?.settings?.language || 'en',
+        timezone: tenant?.settings?.timezone || 'America/New_York',
+        dateFormat: tenant?.settings?.dateFormat || 'MM/dd/yyyy',
+        numberFormat: '1,234.56'
+      },
+      notifications: {
+        email: true,
+        inApp: true,
+        categories: {
+          system: true,
+          user: true,
+          financial: true,
+          compliance: true,
+          workflow: true
+        },
+        priorities: {
+          low: false,
+          medium: true,
+          high: true,
+          critical: true
+        }
+      }
+    };
+  };
+
+  const [settings, setSettings] = useState(loadSettings());
+
+  // Load settings and apply to global state on mount
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('erpSettings');
+    if (savedSettings) {
+      const parsedSettings = JSON.parse(savedSettings);
+      // Merge saved settings with defaults to ensure all properties exist
+      const defaultSettings = loadSettings();
+      const mergedSettings = {
+        ...defaultSettings,
+        ...parsedSettings,
+        company: { ...defaultSettings.company, ...parsedSettings.company },
+        security: { ...defaultSettings.security, ...parsedSettings.security },
+        localization: { ...defaultSettings.localization, ...parsedSettings.localization },
+        notifications: { ...defaultSettings.notifications, ...parsedSettings.notifications }
+      };
+      setSettings(mergedSettings);
+      
+      // Apply settings to global state
+      const selectedCurrency = worldCurrencies.find(c => c.code === (mergedSettings.company?.currency || mergedSettings.localization?.currency || 'USD'));
+      const currencySymbol = selectedCurrency ? selectedCurrency.symbol : 'USD';
+      
+      dispatch({
+        type: 'UPDATE_SETTINGS',
+        payload: {
+          currency: mergedSettings.company?.currency || mergedSettings.localization?.currency || 'USD',
+          currencySymbol: currencySymbol,
+          language: mergedSettings.company?.language || mergedSettings.localization?.language || 'en',
+          timezone: mergedSettings.company?.timezone || mergedSettings.localization?.timezone || 'America/New_York',
+          dateFormat: mergedSettings.company?.dateFormat || mergedSettings.localization?.dateFormat || 'MM/dd/yyyy',
+          fiscalYearStart: mergedSettings.company?.fiscalYearStart || '01/01'
+        }
+      });
+    }
+  }, [dispatch]);
+
+  // Update notification settings when user becomes available
+  useEffect(() => {
+    if (user?.notificationPreferences) {
+      setSettings(prev => ({
+        ...prev,
+        notifications: {
+          email: user.notificationPreferences?.email ?? prev.notifications?.email ?? true,
+          inApp: user.notificationPreferences?.inApp ?? prev.notifications?.inApp ?? true,
+          categories: {
+            system: user.notificationPreferences?.categories?.system ?? prev.notifications?.categories?.system ?? true,
+            user: user.notificationPreferences?.categories?.user ?? prev.notifications?.categories?.user ?? true,
+            financial: user.notificationPreferences?.categories?.financial ?? prev.notifications?.categories?.financial ?? true,
+            compliance: user.notificationPreferences?.categories?.compliance ?? prev.notifications?.categories?.compliance ?? true,
+            workflow: user.notificationPreferences?.categories?.workflow ?? prev.notifications?.categories?.workflow ?? true
+          },
+          priorities: {
+            low: user.notificationPreferences?.priorities?.low ?? prev.notifications?.priorities?.low ?? false,
+            medium: user.notificationPreferences?.priorities?.medium ?? prev.notifications?.priorities?.medium ?? true,
+            high: user.notificationPreferences?.priorities?.high ?? prev.notifications?.priorities?.high ?? true,
+            critical: user.notificationPreferences?.priorities?.critical ?? prev.notifications?.priorities?.critical ?? true
+          }
+        }
+      }));
+    }
+  }, [user]);
+
+  const updateSetting = (category: string, key: string, value: any) => {
+    setSettings(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [key]: value
+      }
+    }));
+  };
 
   const tabs = [
     { id: 'company', name: 'Company', icon: Building2 },
     { id: 'localization', name: 'Localization', icon: Globe },
+    { id: 'notifications', name: 'Notifications', icon: Bell },
     { id: 'users', name: 'Users & Roles', icon: Users },
     { id: 'security', name: 'Security', icon: Lock },
     { id: 'billing', name: 'Billing', icon: CreditCard },
@@ -127,38 +239,100 @@ export default function Settings() {
   ];
 
   const handleSaveCompanySettings = () => {
-    console.log('Saving company settings:', companySettings);
-    alert('Company settings saved successfully!');
+    // Get currency symbol
+    const selectedCurrency = worldCurrencies.find(c => c.code === settings.company.currency);
+    const currencySymbol = selectedCurrency ? selectedCurrency.symbol : settings.company.currency;
+
+    // Save to localStorage
+    localStorage.setItem('erpSettings', JSON.stringify(settings));
+
+    // Update global state with new settings
+    dispatch({
+      type: 'UPDATE_SETTINGS',
+      payload: {
+        currency: settings.company.currency,
+        currencySymbol: currencySymbol,
+        language: settings.company.language,
+        timezone: settings.company.timezone,
+        dateFormat: settings.company.dateFormat,
+        fiscalYearStart: settings.company.fiscalYearStart
+      }
+    });
+
+    showNotification('Company settings saved successfully!', 'success');
   };
 
   const handleSaveSecuritySettings = () => {
-    console.log('Saving security settings:', securitySettings);
-    alert('Security settings saved successfully!');
+    // Save to localStorage
+    localStorage.setItem('erpSettings', JSON.stringify(settings));
+
+    // Apply security settings
+    if (settings.security.sessionTimeout) {
+      localStorage.setItem('sessionTimeout', settings.security.sessionTimeout.toString());
+    }
+
+    showNotification('Security settings saved successfully!', 'success');
+  };
+
+  const handleSaveLocalizationSettings = () => {
+    // Get currency symbol
+    const selectedCurrency = worldCurrencies.find(c => c.code === settings.localization.currency);
+    const currencySymbol = selectedCurrency ? selectedCurrency.symbol : settings.localization.currency;
+
+    // Save to localStorage
+    localStorage.setItem('erpSettings', JSON.stringify(settings));
+
+    // Update global state with localization settings
+    dispatch({
+      type: 'UPDATE_SETTINGS',
+      payload: {
+        currency: settings.localization.currency,
+        currencySymbol: currencySymbol,
+        language: settings.localization.language,
+        timezone: settings.localization.timezone,
+        dateFormat: settings.localization.dateFormat
+      }
+    });
+
+    showNotification('Localization settings saved successfully!', 'success');
+  };
+
+  const handleSaveNotificationSettings = () => {
+    // Save to localStorage
+    localStorage.setItem('erpSettings', JSON.stringify(settings));
+
+    // Update user notification preferences (in a real app, this would be an API call)
+    if (user) {
+      const updatedUser = {
+        ...user,
+        notificationPreferences: settings.notifications
+      };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    }
+
+    showNotification('Notification settings saved successfully!', 'success');
   };
 
   const handleInviteUser = () => {
     const email = prompt('Enter email address to invite:');
     if (email) {
-      console.log('Inviting user:', email);
-      alert(`Invitation sent to ${email}`);
+      showNotification(`Invitation sent to ${email}`, 'success');
     }
   };
 
   const handleEditUser = (userId: number) => {
-    console.log('Editing user:', userId);
-    alert('User edit functionality would open here');
+    showNotification(`Editing user ${userId}`, 'info');
+    showNotification('User edit functionality would open here', 'info');
   };
 
   const handleDeleteUser = (userId: number) => {
     if (confirm('Are you sure you want to delete this user?')) {
-      console.log('Deleting user:', userId);
-      alert('User deleted successfully');
+      showNotification('User deleted successfully', 'success');
     }
   };
 
   const handleResendInvitation = (userId: number) => {
-    console.log('Resending invitation to user:', userId);
-    alert('Invitation resent successfully');
+    showNotification('Invitation resent successfully', 'success');
   };
 
   return (
@@ -212,8 +386,8 @@ export default function Settings() {
                     </label>
                     <input
                       type="text"
-                      value={companySettings.name}
-                      onChange={(e) => setCompanySettings(prev => ({ ...prev, name: e.target.value }))}
+                      value={settings.company.name}
+                      onChange={(e) => updateSetting('company', 'name', e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -222,8 +396,8 @@ export default function Settings() {
                       Industry
                     </label>
                     <select 
-                      value={companySettings.industry}
-                      onChange={(e) => setCompanySettings(prev => ({ ...prev, industry: e.target.value }))}
+                      value={settings.company.industry}
+                      onChange={(e) => updateSetting('company', 'industry', e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="Technology">Technology</option>
@@ -247,8 +421,8 @@ export default function Settings() {
                     </label>
                     <input
                       type="tel"
-                      value={companySettings.phone}
-                      onChange={(e) => setCompanySettings(prev => ({ ...prev, phone: e.target.value }))}
+                      value={settings.company.phone}
+                      onChange={(e) => updateSetting('company', 'phone', e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -258,8 +432,8 @@ export default function Settings() {
                     </label>
                     <input
                       type="email"
-                      value={companySettings.email}
-                      onChange={(e) => setCompanySettings(prev => ({ ...prev, email: e.target.value }))}
+                      value={settings.company.email}
+                      onChange={(e) => updateSetting('company', 'email', e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -272,8 +446,8 @@ export default function Settings() {
                     </label>
                     <input
                       type="url"
-                      value={companySettings.website}
-                      onChange={(e) => setCompanySettings(prev => ({ ...prev, website: e.target.value }))}
+                      value={settings.company.website}
+                      onChange={(e) => updateSetting('company', 'website', e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -283,8 +457,8 @@ export default function Settings() {
                     </label>
                     <input
                       type="text"
-                      value={companySettings.taxNumber}
-                      onChange={(e) => setCompanySettings(prev => ({ ...prev, taxNumber: e.target.value }))}
+                      value={settings.company.taxNumber}
+                      onChange={(e) => updateSetting('company', 'taxNumber', e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -296,8 +470,8 @@ export default function Settings() {
                   </label>
                   <textarea
                     rows={3}
-                    value={companySettings.address}
-                    onChange={(e) => setCompanySettings(prev => ({ ...prev, address: e.target.value }))}
+                    value={settings.company.address}
+                    onChange={(e) => updateSetting('company', 'address', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Enter your complete business address"
                   />
@@ -329,8 +503,8 @@ export default function Settings() {
                       Base Currency *
                     </label>
                     <select 
-                      value={companySettings.currency}
-                      onChange={(e) => setCompanySettings(prev => ({ ...prev, currency: e.target.value }))}
+                      value={settings.localization.currency}
+                      onChange={(e) => updateSetting('localization', 'currency', e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       {worldCurrencies.map(currency => (
@@ -346,8 +520,8 @@ export default function Settings() {
                       Default Language *
                     </label>
                     <select 
-                      value={companySettings.language}
-                      onChange={(e) => setCompanySettings(prev => ({ ...prev, language: e.target.value }))}
+                      value={settings.localization.language}
+                      onChange={(e) => updateSetting('localization', 'language', e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       {worldLanguages.map(language => (
@@ -365,8 +539,8 @@ export default function Settings() {
                     Timezone *
                   </label>
                   <select 
-                    value={companySettings.timezone}
-                    onChange={(e) => setCompanySettings(prev => ({ ...prev, timezone: e.target.value }))}
+                    value={settings.localization.timezone}
+                    onChange={(e) => updateSetting('localization', 'timezone', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     {worldTimezones.map(timezone => (
@@ -383,8 +557,8 @@ export default function Settings() {
                       Date Format
                     </label>
                     <select 
-                      value={companySettings.dateFormat}
-                      onChange={(e) => setCompanySettings(prev => ({ ...prev, dateFormat: e.target.value }))}
+                      value={settings.localization.dateFormat}
+                      onChange={(e) => updateSetting('localization', 'dateFormat', e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="MM/dd/yyyy">MM/dd/yyyy (US Format)</option>
@@ -398,8 +572,8 @@ export default function Settings() {
                       Fiscal Year Start
                     </label>
                     <select 
-                      value={companySettings.fiscalYearStart}
-                      onChange={(e) => setCompanySettings(prev => ({ ...prev, fiscalYearStart: e.target.value }))}
+                      value={settings.company.fiscalYearStart}
+                      onChange={(e) => updateSetting('company', 'fiscalYearStart', e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="01/01">January 1st</option>
@@ -411,12 +585,195 @@ export default function Settings() {
                 </div>
 
                 <div className="flex justify-end">
-                  <Button onClick={() => {
-                    console.log('Saving localization settings:', companySettings);
-                    alert('Localization settings saved successfully!');
-                  }}>
+                  <Button onClick={handleSaveLocalizationSettings}>
                     <Save className="w-4 h-4 mr-2" />
                     Save Localization Settings
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Notification Settings */}
+          {activeTab === 'notifications' && (
+            <Card>
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold text-gray-900">Notification Preferences</h2>
+                <p className="text-gray-600">Configure how you receive notifications and what types of notifications you want to see</p>
+              </div>
+
+              <div className="space-y-6">
+                {/* General Settings */}
+                <div>
+                  <h3 className="text-md font-medium text-gray-900 mb-4">General Settings</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center">
+                      <input
+                        id="email-notifications"
+                        type="checkbox"
+                        checked={settings.notifications?.email ?? true}
+                        onChange={(e) => updateSetting('notifications', 'email', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="email-notifications" className="ml-2 block text-sm text-gray-900">
+                        Email Notifications
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        id="in-app-notifications"
+                        type="checkbox"
+                        checked={settings.notifications?.inApp ?? true}
+                        onChange={(e) => updateSetting('notifications', 'inApp', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="in-app-notifications" className="ml-2 block text-sm text-gray-900">
+                        In-App Notifications
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Category Preferences */}
+                <div>
+                  <h3 className="text-md font-medium text-gray-900 mb-4">Notification Categories</h3>
+                  <p className="text-sm text-gray-600 mb-4">Choose which types of notifications you want to receive</p>
+                  <div className="space-y-3">
+                    <div className="flex items-center">
+                      <input
+                        id="system-notifications"
+                        type="checkbox"
+                        checked={settings.notifications?.categories?.system ?? true}
+                        onChange={(e) => updateSetting('notifications', 'categories', { ...settings.notifications?.categories, system: e.target.checked })}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="system-notifications" className="ml-2 block text-sm text-gray-900">
+                        System Notifications - Updates about system maintenance, upgrades, and technical issues
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        id="user-notifications"
+                        type="checkbox"
+                        checked={settings.notifications?.categories?.user ?? true}
+                        onChange={(e) => updateSetting('notifications', 'categories', { ...settings.notifications?.categories, user: e.target.checked })}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="user-notifications" className="ml-2 block text-sm text-gray-900">
+                        User Notifications - Account changes, profile updates, and user management
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        id="financial-notifications"
+                        type="checkbox"
+                        checked={settings.notifications?.categories?.financial ?? true}
+                        onChange={(e) => updateSetting('notifications', 'categories', { ...settings.notifications?.categories, financial: e.target.checked })}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="financial-notifications" className="ml-2 block text-sm text-gray-900">
+                        Financial Notifications - Invoice payments, budget alerts, and financial milestones
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        id="compliance-notifications"
+                        type="checkbox"
+                        checked={settings.notifications?.categories?.compliance ?? true}
+                        onChange={(e) => updateSetting('notifications', 'categories', { ...settings.notifications?.categories, compliance: e.target.checked })}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="compliance-notifications" className="ml-2 block text-sm text-gray-900">
+                        Compliance Notifications - Tax deadlines, regulatory updates, and compliance reminders
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        id="workflow-notifications"
+                        type="checkbox"
+                        checked={settings.notifications?.categories?.workflow ?? true}
+                        onChange={(e) => updateSetting('notifications', 'categories', { ...settings.notifications?.categories, workflow: e.target.checked })}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="workflow-notifications" className="ml-2 block text-sm text-gray-900">
+                        Workflow Notifications - Approval requests, task assignments, and process updates
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Priority Preferences */}
+                <div>
+                  <h3 className="text-md font-medium text-gray-900 mb-4">Notification Priorities</h3>
+                  <p className="text-sm text-gray-600 mb-4">Choose which priority levels you want to be notified about</p>
+                  <div className="space-y-3">
+                    <div className="flex items-center">
+                      <input
+                        id="critical-priority"
+                        type="checkbox"
+                        checked={settings.notifications?.priorities?.critical ?? true}
+                        onChange={(e) => updateSetting('notifications', 'priorities', { ...settings.notifications?.priorities, critical: e.target.checked })}
+                        className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="critical-priority" className="ml-2 block text-sm text-gray-900">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          Critical
+                        </span>
+                        <span className="ml-2">Critical - System emergencies, security alerts, and urgent compliance issues</span>
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        id="high-priority"
+                        type="checkbox"
+                        checked={settings.notifications?.priorities?.high ?? true}
+                        onChange={(e) => updateSetting('notifications', 'priorities', { ...settings.notifications?.priorities, high: e.target.checked })}
+                        className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="high-priority" className="ml-2 block text-sm text-gray-900">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                          High
+                        </span>
+                        <span className="ml-2">High - Important deadlines, payment reminders, and significant updates</span>
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        id="medium-priority"
+                        type="checkbox"
+                        checked={settings.notifications?.priorities?.medium ?? true}
+                        onChange={(e) => updateSetting('notifications', 'priorities', { ...settings.notifications?.priorities, medium: e.target.checked })}
+                        className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="medium-priority" className="ml-2 block text-sm text-gray-900">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          Medium
+                        </span>
+                        <span className="ml-2">Medium - General updates, task completions, and routine notifications</span>
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        id="low-priority"
+                        type="checkbox"
+                        checked={settings.notifications?.priorities?.low ?? false}
+                        onChange={(e) => updateSetting('notifications', 'priorities', { ...settings.notifications?.priorities, low: e.target.checked })}
+                        className="h-4 w-4 text-gray-600 focus:ring-gray-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="low-priority" className="ml-2 block text-sm text-gray-900">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          Low
+                        </span>
+                        <span className="ml-2">Low - Minor updates, informational messages, and non-urgent notifications</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button onClick={handleSaveNotificationSettings}>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Notification Settings
                   </Button>
                 </div>
               </div>
@@ -517,8 +874,8 @@ export default function Settings() {
                     <input 
                       type="checkbox" 
                       className="sr-only peer" 
-                      checked={securitySettings.twoFactorRequired}
-                      onChange={(e) => setSecuritySettings(prev => ({ ...prev, twoFactorRequired: e.target.checked }))}
+                      checked={settings.security.twoFactorRequired}
+                      onChange={(e) => updateSetting('security', 'twoFactorRequired', e.target.checked)}
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                   </label>
@@ -530,8 +887,8 @@ export default function Settings() {
                     <p className="text-sm text-gray-600">Automatically log out after inactivity</p>
                   </div>
                   <select 
-                    value={securitySettings.sessionTimeout}
-                    onChange={(e) => setSecuritySettings(prev => ({ ...prev, sessionTimeout: parseInt(e.target.value) }))}
+                    value={settings.security.sessionTimeout}
+                    onChange={(e) => updateSetting('security', 'sessionTimeout', parseInt(e.target.value))}
                     className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   >
                     <option value={15}>15 minutes</option>
@@ -551,8 +908,8 @@ export default function Settings() {
                     <input 
                       type="checkbox" 
                       className="sr-only peer" 
-                      checked={securitySettings.loginNotifications}
-                      onChange={(e) => setSecuritySettings(prev => ({ ...prev, loginNotifications: e.target.checked }))}
+                      checked={settings.security.loginNotifications}
+                      onChange={(e) => updateSetting('security', 'loginNotifications', e.target.checked)}
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                   </label>
@@ -566,8 +923,8 @@ export default function Settings() {
                     <input
                       type="number"
                       min="0"
-                      value={securitySettings.passwordExpiry}
-                      onChange={(e) => setSecuritySettings(prev => ({ ...prev, passwordExpiry: parseInt(e.target.value) || 0 }))}
+                      value={settings.security.passwordExpiry}
+                      onChange={(e) => updateSetting('security', 'passwordExpiry', parseInt(e.target.value) || 0)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -579,8 +936,8 @@ export default function Settings() {
                       type="number"
                       min="1"
                       max="10"
-                      value={securitySettings.maxLoginAttempts}
-                      onChange={(e) => setSecuritySettings(prev => ({ ...prev, maxLoginAttempts: parseInt(e.target.value) || 5 }))}
+                      value={settings.security.maxLoginAttempts}
+                      onChange={(e) => updateSetting('security', 'maxLoginAttempts', parseInt(e.target.value) || 5)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -592,8 +949,8 @@ export default function Settings() {
                   </label>
                   <textarea
                     rows={3}
-                    value={securitySettings.ipWhitelist}
-                    onChange={(e) => setSecuritySettings(prev => ({ ...prev, ipWhitelist: e.target.value }))}
+                    value={settings.security.ipWhitelist}
+                    onChange={(e) => updateSetting('security', 'ipWhitelist', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Enter IP addresses separated by commas (e.g., 192.168.1.1, 10.0.0.1)"
                   />
@@ -629,7 +986,7 @@ export default function Settings() {
                           ({checkTrialStatus().daysRemaining} days remaining)
                         </p>
                       </div>
-                      <Button onClick={() => console.log('Upgrading plan')}>
+                      <Button onClick={() => showNotification('Plan upgrade functionality would open here', 'info')}>
                         Upgrade Now
                       </Button>
                     </div>
@@ -644,7 +1001,7 @@ export default function Settings() {
                           Next billing date: {tenant?.billing.nextBillingDate?.toLocaleDateString()}
                         </p>
                     </div>
-                    <Button variant="secondary" onClick={() => console.log('Managing subscription')}>
+                    <Button variant="secondary" onClick={() => showNotification('Subscription management would open here', 'info')}>
                       Manage Plan
                     </Button>
                   </div>
@@ -657,7 +1014,7 @@ export default function Settings() {
                     <p className="text-2xl font-bold text-gray-900 mt-2">KES 2,999</p>
                     <p className="text-gray-600">per month</p>
                     <p className="text-sm text-gray-500 mt-2">Up to 3 users</p>
-                    <Button variant="secondary" size="sm" className="mt-4" onClick={() => console.log('Downgrading to Starter')}>
+                    <Button variant="secondary" size="sm" className="mt-4" onClick={() => showNotification('Plan downgrade functionality would open here', 'info')}>
                       {tenant?.plan === 'starter' ? 'Current Plan' : 'Downgrade'}
                     </Button>
                   </div>
@@ -706,7 +1063,7 @@ export default function Settings() {
                           <p className="font-semibold text-gray-900">
                             {invoice.currency} {invoice.amount.toLocaleString()}
                           </p>
-                          <Button variant="secondary" size="sm" onClick={() => console.log('Downloading invoice', invoice.id)}>
+                          <Button variant="secondary" size="sm" onClick={() => showNotification(`Invoice ${invoice.id} downloaded`, 'success')}>
                             Download
                           </Button>
                         </div>
@@ -733,7 +1090,7 @@ export default function Settings() {
                     <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">Not Connected</span>
                   </div>
                   <p className="text-sm text-gray-600 mb-4">Import data from QuickBooks Online</p>
-                  <Button size="sm" onClick={() => console.log('Connecting to QuickBooks')}>
+                  <Button size="sm" onClick={() => showNotification('QuickBooks integration would open here', 'info')}>
                     Connect
                   </Button>
                 </div>
@@ -744,7 +1101,7 @@ export default function Settings() {
                     <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">Connected</span>
                   </div>
                   <p className="text-sm text-gray-600 mb-4">Payment processing and invoicing</p>
-                  <Button variant="secondary" size="sm" onClick={() => console.log('Configuring Stripe')}>
+                  <Button variant="secondary" size="sm" onClick={() => showNotification('Stripe configuration would open here', 'info')}>
                     Configure
                   </Button>
                 </div>
@@ -755,7 +1112,7 @@ export default function Settings() {
                     <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">Not Connected</span>
                   </div>
                   <p className="text-sm text-gray-600 mb-4">Sync orders and inventory</p>
-                  <Button size="sm" onClick={() => console.log('Connecting to Shopify')}>
+                  <Button size="sm" onClick={() => showNotification('Shopify integration would open here', 'info')}>
                     Connect
                   </Button>
                 </div>
@@ -766,7 +1123,7 @@ export default function Settings() {
                     <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">Not Connected</span>
                   </div>
                   <p className="text-sm text-gray-600 mb-4">Customer relationship management</p>
-                  <Button size="sm" onClick={() => console.log('Connecting to Salesforce')}>
+                  <Button size="sm" onClick={() => showNotification('Salesforce integration would open here', 'info')}>
                     Connect
                   </Button>
                 </div>
@@ -777,7 +1134,7 @@ export default function Settings() {
                     <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">Pending</span>
                   </div>
                   <p className="text-sm text-gray-600 mb-4">Automate workflows with 3000+ apps</p>
-                  <Button variant="secondary" size="sm" onClick={() => console.log('Configuring Zapier')}>
+                  <Button variant="secondary" size="sm" onClick={() => showNotification('Zapier configuration would open here', 'info')}>
                     Configure
                   </Button>
                 </div>
@@ -788,7 +1145,7 @@ export default function Settings() {
                     <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">Connected</span>
                   </div>
                   <p className="text-sm text-gray-600 mb-4">Automatic bank transaction import</p>
-                  <Button variant="secondary" size="sm" onClick={() => console.log('Managing bank feeds')}>
+                  <Button variant="secondary" size="sm" onClick={() => showNotification('Bank feeds management would open here', 'info')}>
                     Manage
                   </Button>
                 </div>

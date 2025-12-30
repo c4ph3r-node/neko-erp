@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import { Plus, Search, Truck, Package, CheckCircle, Clock, Eye, Edit } from 'lucide-react';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
+import Modal from '../components/UI/Modal';
+import { SalesOrderForm } from '../components/SO';
+import { useGlobalState } from '../contexts/GlobalStateContext';
+import { salesOrderService } from '../services/sales-order.service';
 
 const mockSalesOrders = [
   {
@@ -89,11 +93,19 @@ const mockDeliveryNotes = [
 ];
 
 export default function SalesOrders() {
+  const { showNotification } = useGlobalState();
   const [activeTab, setActiveTab] = useState('orders');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [salesOrders, setSalesOrders] = useState(mockSalesOrders);
+  const [deliveryNotes, setDeliveryNotes] = useState(mockDeliveryNotes);
+  const [showDeliverySchedule, setShowDeliverySchedule] = useState(false);
+  const [viewingOrder, setViewingOrder] = useState<any>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [editingOrder, setEditingOrder] = useState(null);
 
-  const filteredOrders = mockSalesOrders.filter(order => {
+  const filteredOrders = salesOrders.filter(order => {
     const matchesSearch = order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.customer.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
@@ -125,6 +137,122 @@ export default function SalesOrders() {
   const pendingOrders = filteredOrders.filter(order => order.status === 'pending_approval').length;
   const shippedOrders = filteredOrders.filter(order => order.status === 'shipped').length;
 
+  const handleViewDetails = (order: any) => {
+    setViewingOrder(order);
+    setShowViewModal(true);
+  };
+
+  const handleAddOrder = () => {
+    setEditingOrder(null);
+    setShowOrderModal(true);
+  };
+
+  const handleEditOrder = (order: any) => {
+    setEditingOrder(order);
+    setShowOrderModal(true);
+  };
+
+  const handleSubmitOrder = async (orderData: any) => {
+    try {
+      if (editingOrder) {
+        await salesOrderService.updateOrder(editingOrder.id, orderData);
+        setSalesOrders(prev => prev.map(order => 
+          order.id === editingOrder.id 
+            ? { ...order, ...orderData }
+            : order
+        ));
+        showNotification(`Sales Order ${orderData.order_number} has been updated successfully!`, 'success');
+      } else {
+        const newOrder = await salesOrderService.createOrder({
+          tenant_id: '00000000-0000-0000-0000-000000000001', // Should come from context
+          order_number: orderData.order_number,
+          customer_id: orderData.customer_id,
+          order_date: orderData.order_date,
+          delivery_date: orderData.delivery_date,
+          status: orderData.status,
+          payment_status: orderData.payment_status,
+          fulfillment_status: orderData.fulfillment_status,
+          currency: orderData.currency,
+          subtotal: orderData.subtotal,
+          discount_amount: orderData.discount_amount,
+          tax_amount: orderData.tax_amount,
+          total: orderData.total,
+          notes: orderData.notes,
+          internal_notes: orderData.internal_notes
+        });
+
+        // Add the order lines
+        for (const line of orderData.lines) {
+          // Note: In a real implementation, you'd create order lines here
+          // For now, we'll just add to local state
+        }
+
+        setSalesOrders(prev => [...prev, {
+          ...newOrder,
+          customer: { name: 'Customer Name' }, // This should be fetched
+          items: orderData.lines
+        }]);
+        showNotification(`Sales Order ${newOrder.order_number} has been created successfully!`, 'success');
+      }
+    } catch (error) {
+      console.error('Error saving sales order:', error);
+      showNotification('Failed to save sales order. Please try again.', 'error');
+    }
+    setShowOrderModal(false);
+    setEditingOrder(null);
+  };
+
+  const handleApproveOrder = (orderId: number) => {
+    setSalesOrders(prev => prev.map(order => 
+      order.id === orderId 
+        ? { ...order, status: 'confirmed' }
+        : order
+    ));
+    showNotification(`Sales Order ${orderId} has been approved and confirmed!`, 'success');
+  };
+
+  const handleShipOrder = (orderId: number) => {
+    setSalesOrders(prev => prev.map(order => 
+      order.id === orderId 
+        ? { ...order, status: 'shipped' }
+        : order
+    ));
+    showNotification(`Sales Order ${orderId} has been marked as shipped!`, 'success');
+  };
+
+  const handleCreateDeliveryNote = (order: any) => {
+    const newDeliveryNote = {
+      id: deliveryNotes.length + 1,
+      deliveryNumber: `DN-${String(deliveryNotes.length + 1).padStart(3, '0')}`,
+      salesOrder: order.orderNumber,
+      customer: order.customer,
+      deliveryDate: new Date().toISOString().split('T')[0],
+      status: 'pending',
+      items: order.items.map((item: any) => ({
+        product: item.product,
+        quantity: item.quantity,
+        delivered: 0
+      })),
+      driver: 'TBD',
+      vehicle: 'TBD'
+    };
+    setDeliveryNotes(prev => [...prev, newDeliveryNote]);
+    showNotification(`Delivery note created for order: ${order.orderNumber}`, 'success');
+  };
+
+  const handleViewDeliveryNote = (delivery: any) => {
+    showNotification(`Viewing delivery note: ${delivery.deliveryNumber}, Sales Order: ${delivery.salesOrder}, Customer: ${delivery.customer}, Status: ${delivery.status}`, 'info');
+  };
+
+  const handleEditDeliveryNote = (delivery: any) => {
+    showNotification(`Editing delivery note: ${delivery.deliveryNumber}`, 'info');
+  };
+
+  const handleDeliverySchedule = () => {
+    setActiveTab('deliveries');
+    setShowDeliverySchedule(true);
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -134,11 +262,11 @@ export default function SalesOrders() {
           <p className="text-gray-600">Manage sales orders, deliveries, and customer fulfillment</p>
         </div>
         <div className="flex space-x-3">
-          <Button variant="secondary">
+          <Button variant="secondary" onClick={handleDeliverySchedule}>
             <Truck className="w-4 h-4 mr-2" />
             Delivery Schedule
           </Button>
-          <Button>
+          <Button onClick={handleAddOrder}>
             <Plus className="w-4 h-4 mr-2" />
             New Sales Order
           </Button>
@@ -303,14 +431,32 @@ export default function SalesOrders() {
                   </div>
 
                   <div className="flex space-x-2">
-                    <Button variant="secondary" size="sm" className="flex-1">
+                    <Button variant="secondary" size="sm" className="flex-1" onClick={() => handleViewDetails(order)}>
                       <Eye className="w-4 h-4 mr-2" />
                       View Details
                     </Button>
-                    <Button size="sm" className="flex-1">
+                    <Button size="sm" className="flex-1" onClick={() => handleEditOrder(order)}>
                       <Edit className="w-4 h-4 mr-2" />
                       Edit Order
                     </Button>
+                    {order.status === 'pending_approval' && (
+                      <Button size="sm" className="flex-1" onClick={() => handleApproveOrder(order.id)}>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Approve
+                      </Button>
+                    )}
+                    {order.status === 'confirmed' && (
+                      <Button size="sm" className="flex-1" onClick={() => handleShipOrder(order.id)}>
+                        <Truck className="w-4 h-4 mr-2" />
+                        Ship Order
+                      </Button>
+                    )}
+                    {order.status === 'confirmed' && (
+                      <Button variant="secondary" size="sm" className="flex-1" onClick={() => handleCreateDeliveryNote(order)}>
+                        <Package className="w-4 h-4 mr-2" />
+                        Create DN
+                      </Button>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -321,44 +467,109 @@ export default function SalesOrders() {
 
       {/* Delivery Notes Tab */}
       {activeTab === 'deliveries' && (
-        <Card>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">Delivery Notes</h2>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Create Delivery Note
-            </Button>
-          </div>
+        <div className="space-y-6">
+          {showDeliverySchedule ? (
+            /* Delivery Schedule View */
+            <Card>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold text-gray-900">Delivery Schedule</h2>
+                <Button variant="secondary" onClick={() => setShowDeliverySchedule(false)}>
+                  Back to Delivery Notes
+                </Button>
+              </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Delivery Note
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Sales Order
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customer
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Delivery Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Driver
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
+              <div className="space-y-4">
+                {/* Today's Deliveries */}
+                <div>
+                  <h3 className="text-md font-medium text-gray-900 mb-3">Today's Deliveries</h3>
+                  <div className="space-y-2">
+                    {deliveryNotes
+                      .filter(delivery => delivery.deliveryDate === new Date().toISOString().split('T')[0])
+                      .map((delivery) => (
+                        <div key={delivery.id} className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                          <div>
+                            <p className="font-medium text-gray-900">{delivery.deliveryNumber}</p>
+                            <p className="text-sm text-gray-600">Order: {delivery.salesOrder} • Customer: {delivery.customer}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-gray-900">{delivery.driver}</p>
+                            <p className="text-sm text-gray-600">{delivery.vehicle}</p>
+                          </div>
+                        </div>
+                      ))}
+                    {deliveryNotes.filter(delivery => delivery.deliveryDate === new Date().toISOString().split('T')[0]).length === 0 && (
+                      <p className="text-gray-500 text-center py-4">No deliveries scheduled for today</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Upcoming Deliveries */}
+                <div>
+                  <h3 className="text-md font-medium text-gray-900 mb-3">Upcoming Deliveries</h3>
+                  <div className="space-y-2">
+                    {deliveryNotes
+                      .filter(delivery => delivery.deliveryDate > new Date().toISOString().split('T')[0])
+                      .sort((a, b) => a.deliveryDate.localeCompare(b.deliveryDate))
+                      .map((delivery) => (
+                        <div key={delivery.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                          <div>
+                            <p className="font-medium text-gray-900">{delivery.deliveryNumber}</p>
+                            <p className="text-sm text-gray-600">Order: {delivery.salesOrder} • Customer: {delivery.customer}</p>
+                            <p className="text-sm text-gray-500">Scheduled: {new Date(delivery.deliveryDate).toLocaleDateString()}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-gray-900">{delivery.driver}</p>
+                            <p className="text-sm text-gray-600">{delivery.vehicle}</p>
+                          </div>
+                        </div>
+                      ))}
+                    {deliveryNotes.filter(delivery => delivery.deliveryDate > new Date().toISOString().split('T')[0]).length === 0 && (
+                      <p className="text-gray-500 text-center py-4">No upcoming deliveries scheduled</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ) : (
+            /* Delivery Notes List View */
+            <Card>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold text-gray-900">Delivery Notes</h2>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Delivery Note
+                </Button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Delivery Note
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Sales Order
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Customer
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Delivery Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Driver
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {mockDeliveryNotes.map((delivery) => (
+                {deliveryNotes.map((delivery) => (
                   <tr key={delivery.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <p className="font-medium text-gray-900">{delivery.deliveryNumber}</p>
@@ -385,10 +596,10 @@ export default function SalesOrders() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
-                        <button className="p-1 text-gray-500 hover:text-blue-600">
+                        <button className="p-1 text-gray-500 hover:text-blue-600" onClick={() => handleViewDeliveryNote(delivery)}>
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button className="p-1 text-gray-500 hover:text-blue-600">
+                        <button className="p-1 text-gray-500 hover:text-blue-600" onClick={() => handleEditDeliveryNote(delivery)}>
                           <Edit className="w-4 h-4" />
                         </button>
                       </div>
@@ -399,7 +610,123 @@ export default function SalesOrders() {
             </table>
           </div>
         </Card>
+          )}
+        </div>
       )}
+
+      {/* Sales Order Modal */}
+      <Modal
+        isOpen={showOrderModal}
+        onClose={() => setShowOrderModal(false)}
+        title={editingOrder ? 'Edit Sales Order' : 'Create New Sales Order'}
+      >
+        <SalesOrderForm
+          initialData={editingOrder}
+          onSubmit={handleSubmitOrder}
+          onCancel={() => setShowOrderModal(false)}
+        />
+      </Modal>
+
+      {/* Sales Order View Modal */}
+      <Modal
+        isOpen={showViewModal}
+        onClose={() => setShowViewModal(false)}
+        title="Sales Order Details"
+      >
+        {viewingOrder && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Information</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Order Number</label>
+                    <p className="text-sm text-gray-900">{viewingOrder.orderNumber}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Customer</label>
+                    <p className="text-sm text-gray-900">{viewingOrder.customer}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Order Date</label>
+                    <p className="text-sm text-gray-900">{viewingOrder.orderDate}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Delivery Date</label>
+                    <p className="text-sm text-gray-900">{viewingOrder.deliveryDate}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Status</label>
+                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(viewingOrder.status)}`}>
+                      {viewingOrder.status.replace('_', ' ').toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Priority</label>
+                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(viewingOrder.priority)}`}>
+                      {viewingOrder.priority.toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Financial Summary</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Subtotal</label>
+                    <p className="text-lg font-semibold text-gray-900">${viewingOrder.subtotal.toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Tax Amount</label>
+                    <p className="text-sm text-gray-900">${viewingOrder.taxAmount.toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Total</label>
+                    <p className="text-xl font-bold text-green-600">${viewingOrder.total.toFixed(2)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Items</h3>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="space-y-3">
+                  {viewingOrder.items.map((item: any, index: number) => (
+                    <div key={index} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-b-0">
+                      <div>
+                        <p className="font-medium text-gray-900">{item.product}</p>
+                        <p className="text-sm text-gray-600">Quantity: {item.quantity} × ${item.unitPrice.toFixed(2)}</p>
+                      </div>
+                      <p className="font-semibold text-gray-900">${item.amount.toFixed(2)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Shipping Information</h3>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-900">{viewingOrder.shippingAddress}</p>
+                  <p className="text-sm text-gray-600 mt-2">Sales Rep: {viewingOrder.salesRep}</p>
+                </div>
+              </div>
+
+              {viewingOrder.notes && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Notes</h3>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-900">{viewingOrder.notes}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

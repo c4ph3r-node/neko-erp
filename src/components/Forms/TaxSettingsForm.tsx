@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Button from '../UI/Button';
+import { eastAfricanTaxConfigs } from '../../lib/eastAfricanTaxConfigs';
 
 interface TaxSettingsFormProps {
   setting?: any;
@@ -9,21 +10,19 @@ interface TaxSettingsFormProps {
 
 export default function TaxSettingsForm({ setting, onSubmit, onCancel }: TaxSettingsFormProps) {
   const [formData, setFormData] = useState({
-    country: setting?.country || 'United States',
-    taxType: setting?.taxType || '',
-    rate: setting?.rate || 0,
+    countryCode: setting?.countryCode || 'KE',
+    taxRegistrationNumber: setting?.taxRegistrationNumber || '',
+    vatRegistrationNumber: setting?.vatRegistrationNumber || '',
     effectiveDate: setting?.effectiveDate || new Date().toISOString().split('T')[0],
-    description: setting?.description || '',
-    isActive: setting?.isActive !== undefined ? setting.isActive : true,
-    applicableToSales: setting?.applicableToSales || false,
-    applicableToPurchases: setting?.applicableToPurchases || false,
-    applicableToPayroll: setting?.applicableToPayroll || false
+    isActive: setting?.isActive !== undefined ? setting.isActive : true
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit(formData);
   };
+
+  const selectedCountry = eastAfricanTaxConfigs[formData.countryCode];
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -32,49 +31,39 @@ export default function TaxSettingsForm({ setting, onSubmit, onCancel }: TaxSett
           <label className="block text-sm font-medium text-gray-700 mb-2">Country *</label>
           <select
             required
-            value={formData.country}
-            onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value }))}
+            value={formData.countryCode}
+            onChange={(e) => setFormData(prev => ({ ...prev, countryCode: e.target.value }))}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
-            <option value="United States">United States</option>
-            <option value="United Kingdom">United Kingdom</option>
-            <option value="Canada">Canada</option>
-            <option value="Australia">Australia</option>
-            <option value="Germany">Germany</option>
-            <option value="France">France</option>
+            {Object.values(eastAfricanTaxConfigs).map(country => (
+              <option key={country.countryCode} value={country.countryCode}>
+                {country.countryName}
+              </option>
+            ))}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Tax Type *</label>
-          <select
+          <label className="block text-sm font-medium text-gray-700 mb-2">Tax Registration Number *</label>
+          <input
+            type="text"
             required
-            value={formData.taxType}
-            onChange={(e) => setFormData(prev => ({ ...prev, taxType: e.target.value }))}
+            value={formData.taxRegistrationNumber}
+            onChange={(e) => setFormData(prev => ({ ...prev, taxRegistrationNumber: e.target.value }))}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Select Tax Type</option>
-            <option value="VAT">VAT</option>
-            <option value="Sales Tax">Sales Tax</option>
-            <option value="Income Tax">Income Tax</option>
-            <option value="Corporate Tax">Corporate Tax</option>
-            <option value="Payroll Tax">Payroll Tax</option>
-            <option value="Withholding Tax">Withholding Tax</option>
-          </select>
+            placeholder="Enter tax registration number"
+          />
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Tax Rate (%) *</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">VAT Registration Number</label>
           <input
-            type="number"
-            required
-            min="0"
-            max="100"
-            step="0.01"
-            value={formData.rate}
-            onChange={(e) => setFormData(prev => ({ ...prev, rate: parseFloat(e.target.value) || 0 }))}
+            type="text"
+            value={formData.vatRegistrationNumber}
+            onChange={(e) => setFormData(prev => ({ ...prev, vatRegistrationNumber: e.target.value }))}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Enter VAT registration number (if applicable)"
           />
         </div>
         <div>
@@ -89,58 +78,25 @@ export default function TaxSettingsForm({ setting, onSubmit, onCancel }: TaxSett
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-        <textarea
-          rows={2}
-          value={formData.description}
-          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          placeholder="Description of this tax setting"
-        />
-      </div>
-
-      <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900">Applicability</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="applicableToSales"
-              checked={formData.applicableToSales}
-              onChange={(e) => setFormData(prev => ({ ...prev, applicableToSales: e.target.checked }))}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="applicableToSales" className="ml-2 block text-sm text-gray-900">
-              Apply to Sales
-            </label>
-          </div>
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="applicableToPurchases"
-              checked={formData.applicableToPurchases}
-              onChange={(e) => setFormData(prev => ({ ...prev, applicableToPurchases: e.target.checked }))}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="applicableToPurchases" className="ml-2 block text-sm text-gray-900">
-              Apply to Purchases
-            </label>
-          </div>
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="applicableToPayroll"
-              checked={formData.applicableToPayroll}
-              onChange={(e) => setFormData(prev => ({ ...prev, applicableToPayroll: e.target.checked }))}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="applicableToPayroll" className="ml-2 block text-sm text-gray-900">
-              Apply to Payroll
-            </label>
+      {selectedCountry && (
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h4 className="text-sm font-medium text-gray-900 mb-2">Tax Authority Information</h4>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="font-medium">Tax Authority:</span> {selectedCountry.taxAuthority}
+            </div>
+            <div>
+              <span className="font-medium">VAT Rate:</span> {selectedCountry.vatRate}%
+            </div>
+            <div>
+              <span className="font-medium">Corporate Tax:</span> {selectedCountry.corporateTaxRate}%
+            </div>
+            <div>
+              <span className="font-medium">Currency:</span> {selectedCountry.currency}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="flex items-center">
         <input

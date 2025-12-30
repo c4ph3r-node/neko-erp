@@ -4,6 +4,7 @@ import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
 import CashFlowForecastForm from '../components/Forms/CashFlowForecastForm';
+import { useGlobalState } from '../contexts/GlobalStateContext';
 
 const mockCashFlowData = [
   {
@@ -82,6 +83,7 @@ const mockCashFlowCategories = [
 ];
 
 export default function CashFlow() {
+  const { formatCurrency } = useGlobalState();
   const [activeTab, setActiveTab] = useState('forecast');
   const [searchTerm, setSearchTerm] = useState('');
   const [dateRange, setDateRange] = useState('30');
@@ -182,7 +184,7 @@ export default function CashFlow() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Current Balance</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">${mockCashFlowSummary.currentBalance.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(mockCashFlowSummary.currentBalance)}</p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
               <DollarSign className="w-6 h-6 text-blue-600" />
@@ -193,7 +195,7 @@ export default function CashFlow() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">30-Day Projection</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">${mockCashFlowSummary.projectedBalance30Days.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(mockCashFlowSummary.projectedBalance30Days)}</p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
               <TrendingUp className="w-6 h-6 text-green-600" />
@@ -204,7 +206,7 @@ export default function CashFlow() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Expected Inflows</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">${mockCashFlowSummary.totalInflows30Days.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(mockCashFlowSummary.totalInflows30Days)}</p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
               <TrendingUp className="w-6 h-6 text-green-600" />
@@ -215,7 +217,7 @@ export default function CashFlow() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Expected Outflows</p>
-              <p className="text-2xl font-bold text-red-600 mt-1">${mockCashFlowSummary.totalOutflows30Days.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-red-600 mt-1">{formatCurrency(mockCashFlowSummary.totalOutflows30Days)}</p>
             </div>
             <div className="p-3 bg-red-100 rounded-lg">
               <TrendingDown className="w-6 h-6 text-red-600" />
@@ -232,7 +234,7 @@ export default function CashFlow() {
             <div>
               <p className="font-medium text-yellow-800">Cash Flow Warning</p>
               <p className="text-sm text-yellow-700">
-                Projected negative cash flow of ${Math.abs(mockCashFlowSummary.netCashFlow30Days).toLocaleString()} in the next 30 days. 
+                Projected negative cash flow of {formatCurrency(Math.abs(mockCashFlowSummary.netCashFlow30Days))} in the next 30 days. 
                 Consider accelerating receivables or deferring non-critical expenses.
               </p>
             </div>
@@ -328,11 +330,11 @@ export default function CashFlow() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <p className={`font-semibold ${getTypeColor(entry.type)}`}>
-                          {entry.type === 'inflow' ? '+' : '-'}${entry.amount.toLocaleString()}
+                          {entry.type === 'inflow' ? '+' : '-'}{formatCurrency(entry.amount)}
                         </p>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <p className="font-semibold text-gray-900">${entry.runningBalance.toLocaleString()}</p>
+                        <p className="font-semibold text-gray-900">{formatCurrency(entry.runningBalance)}</p>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(entry.status)}`}>
@@ -407,17 +409,17 @@ export default function CashFlow() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <p className="text-sm text-green-600">
-                        {category.inflow > 0 ? `$${category.inflow.toLocaleString()}` : '-'}
+                        {category.inflow > 0 ? formatCurrency(category.inflow) : '-'}
                       </p>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <p className="text-sm text-red-600">
-                        {category.outflow > 0 ? `$${category.outflow.toLocaleString()}` : '-'}
+                        {category.outflow > 0 ? formatCurrency(category.outflow) : '-'}
                       </p>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <p className={`font-semibold ${getTypeColor(category.net >= 0 ? 'inflow' : 'outflow')}`}>
-                        {category.net >= 0 ? '+' : ''}${category.net.toLocaleString()}
+                        {category.net >= 0 ? '+' : ''}{formatCurrency(category.net)}
                       </p>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -442,15 +444,15 @@ export default function CashFlow() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               <div className="text-center">
                 <p className="text-sm font-medium text-gray-600">30-Day Projection</p>
-                <p className="text-2xl font-bold text-green-600">${mockCashFlowSummary.projectedBalance30Days.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-green-600">{formatCurrency(mockCashFlowSummary.projectedBalance30Days)}</p>
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium text-gray-600">60-Day Projection</p>
-                <p className="text-2xl font-bold text-blue-600">${mockCashFlowSummary.projectedBalance60Days.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-blue-600">{formatCurrency(mockCashFlowSummary.projectedBalance60Days)}</p>
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium text-gray-600">90-Day Projection</p>
-                <p className="text-2xl font-bold text-purple-600">${mockCashFlowSummary.projectedBalance90Days.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-purple-600">{formatCurrency(mockCashFlowSummary.projectedBalance90Days)}</p>
               </div>
             </div>
 
@@ -459,17 +461,17 @@ export default function CashFlow() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="text-center p-4 bg-white rounded-lg">
                   <p className="text-sm font-medium text-gray-600">Conservative</p>
-                  <p className="text-lg font-bold text-gray-900">${(mockCashFlowSummary.projectedBalance90Days * 0.8).toLocaleString()}</p>
+                  <p className="text-lg font-bold text-gray-900">{formatCurrency(mockCashFlowSummary.projectedBalance90Days * 0.8)}</p>
                   <p className="text-xs text-gray-500">80% of projections</p>
                 </div>
                 <div className="text-center p-4 bg-white rounded-lg">
                   <p className="text-sm font-medium text-gray-600">Realistic</p>
-                  <p className="text-lg font-bold text-blue-600">${mockCashFlowSummary.projectedBalance90Days.toLocaleString()}</p>
+                  <p className="text-lg font-bold text-blue-600">{formatCurrency(mockCashFlowSummary.projectedBalance90Days)}</p>
                   <p className="text-xs text-gray-500">Current projections</p>
                 </div>
                 <div className="text-center p-4 bg-white rounded-lg">
                   <p className="text-sm font-medium text-gray-600">Optimistic</p>
-                  <p className="text-lg font-bold text-green-600">${(mockCashFlowSummary.projectedBalance90Days * 1.2).toLocaleString()}</p>
+                  <p className="text-lg font-bold text-green-600">{formatCurrency(mockCashFlowSummary.projectedBalance90Days * 1.2)}</p>
                   <p className="text-xs text-gray-500">120% of projections</p>
                 </div>
               </div>

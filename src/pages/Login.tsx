@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Building2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/UI/Button';
 
@@ -8,6 +9,7 @@ export default function Login() {
   const [password, setPassword] = useState('password');
   const [error, setError] = useState('');
   const { login, loading } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +87,7 @@ export default function Login() {
             <div className="mt-3 pt-3 border-t border-blue-200">
               <p className="text-sm text-blue-800 font-medium">New to NekoERP?</p>
               <button 
-                onClick={() => window.location.href = '/'}
+                onClick={() => navigate('/')}
                 className="text-sm text-blue-700 hover:text-blue-900 underline"
               >
                 Start your free trial →

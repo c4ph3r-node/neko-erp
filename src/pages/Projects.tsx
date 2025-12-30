@@ -5,6 +5,7 @@ import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
 import ProjectForm from '../components/Forms/ProjectForm';
 import TimeEntryForm from '../components/Forms/TimeEntryForm';
+import { useGlobalState } from '../contexts/GlobalStateContext';
 
 const mockProjects = [
   {
@@ -81,6 +82,7 @@ const recentTimeEntries = [
 ];
 
 export default function Projects() {
+  const { showNotification, formatCurrency } = useGlobalState();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('projects');
@@ -192,6 +194,10 @@ export default function Projects() {
     ));
   };
 
+  const handleProjectReports = () => {
+    showNotification('Project reports functionality would open here', 'info');
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -201,7 +207,7 @@ export default function Projects() {
           <p className="text-gray-600">Track project progress, time, and profitability</p>
         </div>
         <div className="flex space-x-3">
-          <Button variant="secondary">
+          <Button variant="secondary" onClick={handleProjectReports}>
             <BarChart3 className="w-4 h-4 mr-2" />
             Project Reports
           </Button>
@@ -229,7 +235,7 @@ export default function Projects() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Budget</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">${totalBudget.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(totalBudget)}</p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
               <DollarSign className="w-6 h-6 text-green-600" />
@@ -240,7 +246,7 @@ export default function Projects() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Actual Costs</p>
-              <p className="text-2xl font-bold text-orange-600 mt-1">${totalActualCost.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-orange-600 mt-1">{formatCurrency(totalActualCost)}</p>
             </div>
             <div className="p-3 bg-orange-100 rounded-lg">
               <BarChart3 className="w-6 h-6 text-orange-600" />
@@ -338,11 +344,11 @@ export default function Projects() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-gray-600">Budget</p>
-                      <p className="font-semibold text-gray-900">${project.budget.toLocaleString()}</p>
+                      <p className="font-semibold text-gray-900">{formatCurrency(project.budget)}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Actual Cost</p>
-                      <p className="font-semibold text-gray-900">${project.actualCost.toLocaleString()}</p>
+                      <p className="font-semibold text-gray-900">{formatCurrency(project.actualCost)}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Hours Logged</p>

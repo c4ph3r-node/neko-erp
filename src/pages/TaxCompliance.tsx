@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Plus, Search, Calculator, FileText, AlertTriangle, CheckCircle, Download, Calendar, DollarSign, Building2, Globe, Edit, Eye, X, Clock, Percent } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
 import TaxReturnForm from '../components/Forms/TaxReturnForm';
 import TaxSettingsForm from '../components/Forms/TaxSettingsForm';
 import { useGlobalState } from '../contexts/GlobalStateContext';
+import { eastAfricanTaxConfigs, getCountryTaxConfig } from '../lib/eastAfricanTaxConfigs';
 
 const mockTaxReturns = [
   {
@@ -59,29 +61,77 @@ const mockTaxReturns = [
   }
 ];
 
-const kenyanTaxTypes = [
-  { code: 'VAT', name: 'Value Added Tax', rate: 16, description: 'Standard VAT rate in Kenya' },
-  { code: 'VAT_ZERO', name: 'Zero-Rated VAT', rate: 0, description: 'Zero-rated supplies (exports, basic foods)' },
-  { code: 'VAT_EXEMPT', name: 'VAT Exempt', rate: 0, description: 'Exempt supplies (financial services, education)' },
-  { code: 'PAYE', name: 'Pay As You Earn', rate: 0, description: 'Income tax on employment' },
-  { code: 'WHT_PROFESSIONAL', name: 'WHT - Professional Services', rate: 5, description: 'Withholding tax on professional services' },
-  { code: 'WHT_RENT', name: 'WHT - Rent', rate: 10, description: 'Withholding tax on rent payments' },
-  { code: 'WHT_INTEREST', name: 'WHT - Interest', rate: 15, description: 'Withholding tax on interest payments' },
-  { code: 'WHT_DIVIDENDS', name: 'WHT - Dividends', rate: 5, description: 'Withholding tax on dividend payments' },
-  { code: 'CORPORATION_TAX', name: 'Corporation Tax', rate: 30, description: 'Corporate income tax' },
-  { code: 'TURNOVER_TAX', name: 'Turnover Tax', rate: 3, description: 'Tax for small businesses (turnover < KES 5M)' }
-];
-
-const kenyanCounties = [
-  'Nairobi', 'Mombasa', 'Kwale', 'Kilifi', 'Tana River', 'Lamu', 'Taita Taveta', 'Garissa', 'Wajir', 'Mandera',
-  'Marsabit', 'Isiolo', 'Meru', 'Tharaka Nithi', 'Embu', 'Kitui', 'Machakos', 'Makueni', 'Nyandarua', 'Nyeri',
-  'Kirinyaga', 'Murang\'a', 'Kiambu', 'Turkana', 'West Pokot', 'Samburu', 'Trans Nzoia', 'Uasin Gishu', 'Elgeyo Marakwet',
-  'Nandi', 'Baringo', 'Laikipia', 'Nakuru', 'Narok', 'Kajiado', 'Kericho', 'Bomet', 'Kakamega', 'Vihiga', 'Bungoma',
-  'Busia', 'Siaya', 'Kisumu', 'Homa Bay', 'Migori', 'Kisii', 'Nyamira'
-];
-
 export default function TaxCompliance() {
-  const { state, calculatePaye, calculateNhif, calculateNssf, calculateWithholdingTax, submitToKra } = useGlobalState();
+  const { state, calculatePaye, calculateNhif, calculateNssf, calculateWithholdingTax, submitToTaxAuthority, showNotification, t } = useGlobalState();
+  const navigate = useNavigate();
+
+  // Get current country's tax configuration
+  const currentTaxConfig = getCountryTaxConfig(state.taxSettings.countryCode);
+
+  // Generate tax types based on current country configuration
+  const getTaxTypes = () => {
+    if (!currentTaxConfig) return [];
+
+    const taxTypes = [
+      { code: 'VAT', name: 'Value Added Tax', rate: currentTaxConfig.vatRate, description: `Standard VAT rate in ${currentTaxConfig.countryName}` },
+      { code: 'VAT_ZERO', name: 'Zero-Rated VAT', rate: 0, description: 'Zero-rated supplies (exports, basic foods)' },
+      { code: 'VAT_EXEMPT', name: 'VAT Exempt', rate: 0, description: 'Exempt supplies (financial services, education)' },
+      { code: 'PAYE', name: 'Pay As You Earn', rate: 0, description: 'Income tax on employment' },
+      { code: 'CORPORATION_TAX', name: 'Corporation Tax', rate: currentTaxConfig.corporateTaxRate, description: 'Corporate income tax' }
+    ];
+
+    // Add withholding tax types
+    currentTaxConfig.withholdingTaxRates.forEach(wht => {
+      taxTypes.push({
+        code: `WHT_${wht.category}`,
+        name: `WHT - ${wht.description}`,
+        rate: wht.rate,
+        description: wht.description
+      });
+    });
+
+    // Add social security if available
+    if (currentTaxConfig.socialSecurity) {
+      taxTypes.push({
+        code: 'SOCIAL_SECURITY',
+        name: currentTaxConfig.socialSecurity.name,
+        rate: currentTaxConfig.socialSecurity.rates[0]?.totalRate || 0,
+        description: 'Social security contributions'
+      });
+    }
+
+    // Add health insurance if available
+    if (currentTaxConfig.healthInsurance) {
+      taxTypes.push({
+        code: 'HEALTH_INSURANCE',
+        name: currentTaxConfig.healthInsurance.name,
+        rate: 0,
+        description: 'Health insurance contributions'
+      });
+    }
+
+    // Add turnover tax if available
+    if (currentTaxConfig.turnoverTax) {
+      taxTypes.push({
+        code: 'TURNOVER_TAX',
+        name: 'Turnover Tax',
+        rate: currentTaxConfig.turnoverTax.rate,
+        description: `Tax for small businesses (turnover < ${currentTaxConfig.currencySymbol} ${currentTaxConfig.turnoverTax.threshold.toLocaleString()})`
+      });
+    }
+
+    return taxTypes;
+  };
+
+  const taxTypes = getTaxTypes();
+
+  // Get regions/counties based on current country
+  const getRegions = () => {
+    return currentTaxConfig?.counties || currentTaxConfig?.regions || [];
+  };
+
+  const regions = getRegions();
+
   const [activeTab, setActiveTab] = useState('returns');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -115,7 +165,7 @@ export default function TaxCompliance() {
 
   const handleEditReturn = (taxReturn: any) => {
     if (taxReturn.status === 'filed') {
-      alert('Cannot edit filed tax returns. Please create an amendment if needed.');
+      showNotification('Cannot edit filed tax returns. Please create an amendment if needed.', 'error');
       return;
     }
     setEditingReturn(taxReturn);
@@ -125,15 +175,15 @@ export default function TaxCompliance() {
   const handleViewReturn = (returnId: number) => {
     const taxReturn = taxReturns.find(r => r.id === returnId);
     if (taxReturn) {
-      let details = `Tax Return Details:\n\nType: ${taxReturn.returnType}\nPeriod: ${taxReturn.period}\nStatus: ${taxReturn.status}\nDue Date: ${taxReturn.dueDate}\n`;
+      let details = `Type: ${taxReturn.returnType}, Period: ${taxReturn.period}, Status: ${taxReturn.status}`;
       
       if (taxReturn.returnType === 'VAT Return') {
-        details += `\nTotal Sales: KES ${taxReturn.totalSales?.toLocaleString()}\nVAT on Sales: KES ${taxReturn.vatOnSales?.toLocaleString()}\nTotal Purchases: KES ${taxReturn.totalPurchases?.toLocaleString()}\nVAT on Purchases: KES ${taxReturn.vatOnPurchases?.toLocaleString()}\nNet VAT Payable: KES ${taxReturn.netVat?.toLocaleString()}`;
+        details += `, Net VAT: KES ${taxReturn.netVat?.toLocaleString()}`;
       } else if (taxReturn.returnType === 'PAYE Return') {
-        details += `\nTotal Payroll: KES ${taxReturn.totalPayroll?.toLocaleString()}\nTotal PAYE: KES ${taxReturn.totalPaye?.toLocaleString()}\nTotal NSSF: KES ${taxReturn.totalNssf?.toLocaleString()}\nTotal NHIF: KES ${taxReturn.totalNhif?.toLocaleString()}`;
+        details += `, Total PAYE: KES ${taxReturn.totalPaye?.toLocaleString()}`;
       }
       
-      alert(details);
+      showNotification(`Tax Return Details: ${details}`, 'info');
     }
   };
 
@@ -151,7 +201,7 @@ export default function TaxCompliance() {
   const handleFileReturn = async (returnId: number) => {
     const taxReturn = taxReturns.find(r => r.id === returnId);
     if (taxReturn) {
-      const success = await submitToKra('tax_return', returnId.toString());
+      const success = await submitToTaxAuthority('tax_return', returnId.toString());
       if (success) {
         setTaxReturns(prev => prev.map(ret => 
           ret.id === returnId ? { 
@@ -162,6 +212,7 @@ export default function TaxCompliance() {
           } : ret
         ));
         alert(`${taxReturn.returnType} successfully filed with KRA`);
+        showNotification(`${taxReturn.returnType} successfully filed with KRA`, 'success');
       }
     }
   };
@@ -169,7 +220,7 @@ export default function TaxCompliance() {
   const handleDeleteReturn = (returnId: number) => {
     const taxReturn = taxReturns.find(r => r.id === returnId);
     if (taxReturn?.status === 'filed') {
-      alert('Cannot delete filed tax returns');
+      showNotification('Cannot delete filed tax returns', 'error');
       return;
     }
     if (confirm('Are you sure you want to delete this tax return?')) {
@@ -181,7 +232,7 @@ export default function TaxCompliance() {
     const taxReturn = taxReturns.find(r => r.id === returnId);
     if (taxReturn) {
       console.log('Downloading tax return PDF:', taxReturn);
-      alert(`${taxReturn.returnType} for ${taxReturn.period} downloaded as PDF`);
+      showNotification(`${taxReturn.returnType} for ${taxReturn.period} downloaded as PDF`, 'success');
     }
   };
 
@@ -192,17 +243,17 @@ export default function TaxCompliance() {
         const paye = calculatePaye(grossSalary);
         const nhif = calculateNhif(grossSalary);
         const nssf = calculateNssf(grossSalary);
-        alert(`Tax Calculation for KES ${grossSalary.toLocaleString()} gross salary:\n\nPAYE: KES ${paye.toLocaleString()}\nNHIF: KES ${nhif.toLocaleString()}\nNSSF: KES ${nssf.toLocaleString()}\nNet Salary: KES ${(grossSalary - paye - nhif - nssf).toLocaleString()}`);
+        showNotification(`PAYE Calculation: Gross KES ${grossSalary.toLocaleString()}, PAYE KES ${paye.toLocaleString()}, NHIF KES ${nhif.toLocaleString()}, NSSF KES ${nssf.toLocaleString()}, Net KES ${(grossSalary - paye - nhif - nssf).toLocaleString()}`, 'info');
         break;
       case 'withholding':
         const amount = 100000;
         const wht = calculateWithholdingTax(amount, 'PROFESSIONAL_SERVICES');
-        alert(`Withholding Tax Calculation:\n\nAmount: KES ${amount.toLocaleString()}\nWHT (5%): KES ${wht.toLocaleString()}\nNet Payment: KES ${(amount - wht).toLocaleString()}`);
+        showNotification(`WHT Calculation: Amount KES ${amount.toLocaleString()}, WHT KES ${wht.toLocaleString()}, Net KES ${(amount - wht).toLocaleString()}`, 'info');
         break;
       case 'vat':
         const saleAmount = 100000;
-        const vatAmount = saleAmount * (state.kenyanTaxSettings.vatRate / 100);
-        alert(`VAT Calculation:\n\nSale Amount: KES ${saleAmount.toLocaleString()}\nVAT (${state.kenyanTaxSettings.vatRate}%): KES ${vatAmount.toLocaleString()}\nTotal: KES ${(saleAmount + vatAmount).toLocaleString()}`);
+        const vatAmount = saleAmount * ((currentTaxConfig?.vatRate || 16) / 100);
+        showNotification(`VAT Calculation: Sale KES ${saleAmount.toLocaleString()}, VAT KES ${vatAmount.toLocaleString()}, Total KES ${(saleAmount + vatAmount).toLocaleString()}`, 'info');
         break;
     }
   };
@@ -218,14 +269,14 @@ export default function TaxCompliance() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Tax & Compliance Management</h1>
-          <p className="text-gray-600">Comprehensive Kenyan tax compliance system integrated with KRA eTIMS</p>
+          <p className="text-gray-600">Comprehensive tax compliance system integrated with local tax authorities</p>
         </div>
         <div className="flex space-x-3">
-          <Button variant="secondary" onClick={() => console.log('Opening KRA portal')}>
+          <Button variant="secondary" onClick={() => window.open('https://itax.kra.go.ke', '_blank')}>
             <Building2 className="w-4 h-4 mr-2" />
             KRA Portal
           </Button>
-          <Button variant="secondary" onClick={() => console.log('Opening tax calendar')}>
+          <Button variant="secondary" onClick={() => setActiveTab('calendar')}>
             <Calendar className="w-4 h-4 mr-2" />
             Tax Calendar
           </Button>
@@ -241,18 +292,18 @@ export default function TaxCompliance() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="text-center p-4 bg-blue-50 rounded-lg">
             <Building2 className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-            <p className="text-sm font-medium text-blue-600">KRA PIN</p>
-            <p className="text-lg font-bold text-blue-900">{state.kenyanTaxSettings.kraPin}</p>
+            <p className="text-sm font-medium text-blue-600">Tax Registration</p>
+            <p className="text-lg font-bold text-blue-900">{state.taxSettings.taxRegistrationNumber}</p>
           </div>
           <div className="text-center p-4 bg-green-50 rounded-lg">
             <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
             <p className="text-sm font-medium text-green-600">VAT Registration</p>
-            <p className="text-lg font-bold text-green-900">{state.kenyanTaxSettings.vatRegistrationNumber}</p>
+            <p className="text-lg font-bold text-green-900">{state.taxSettings.vatRegistrationNumber}</p>
           </div>
           <div className="text-center p-4 bg-purple-50 rounded-lg">
             <Percent className="w-8 h-8 text-purple-600 mx-auto mb-2" />
             <p className="text-sm font-medium text-purple-600">Current VAT Rate</p>
-            <p className="text-lg font-bold text-purple-900">{state.kenyanTaxSettings.vatRate}%</p>
+            <p className="text-lg font-bold text-purple-900">{currentTaxConfig?.vatRate || 16}%</p>
           </div>
           <div className="text-center p-4 bg-orange-50 rounded-lg">
             <Calculator className="w-8 h-8 text-orange-600 mx-auto mb-2" />
@@ -326,12 +377,20 @@ export default function TaxCompliance() {
             Tax Returns
           </button>
           <button
-            onClick={() => setActiveTab('kenyan_taxes')}
+            onClick={() => setActiveTab('tax_types')}
             className={`whitespace-nowrap pb-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'kenyan_taxes' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              activeTab === 'tax_types' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Kenyan Tax Types
+            Tax Types
+          </button>
+          <button
+            onClick={() => setActiveTab('calendar')}
+            className={`whitespace-nowrap pb-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'calendar' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Tax Calendar
           </button>
           <button
             onClick={() => setActiveTab('calculators')}
@@ -478,20 +537,20 @@ export default function TaxCompliance() {
         </div>
       )}
 
-      {/* Kenyan Tax Types Tab */}
-      {activeTab === 'kenyan_taxes' && (
+      {/* Tax Types Tab */}
+      {activeTab === 'tax_types' && (
         <div className="space-y-6">
           <Card>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">Kenyan Tax Configuration</h2>
-              <Button onClick={() => console.log('Adding custom tax type')}>
+              <h2 className="text-lg font-semibold text-gray-900">{currentTaxConfig?.countryName || 'Country'} Tax Configuration</h2>
+              <Button onClick={() => navigate('/settings')}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Custom Tax
               </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {kenyanTaxTypes.map((taxType) => (
+              {taxTypes.map((taxType) => (
                 <Card key={taxType.code}>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -504,7 +563,7 @@ export default function TaxCompliance() {
                         {taxType.code}
                       </span>
                       <div className="flex space-x-2">
-                        <Button variant="secondary" size="sm" onClick={() => console.log('Configuring', taxType.code)}>
+                        <Button variant="secondary" size="sm" onClick={() => showNotification(`${taxType.name} configuration is managed in Settings`, 'info')}>
                           <Edit className="w-4 h-4" />
                         </Button>
                         <Button variant="secondary" size="sm" onClick={() => handleCalculateTax(taxType.code.toLowerCase())}>
@@ -559,31 +618,31 @@ export default function TaxCompliance() {
           </div>
 
           <Card>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Kenyan Tax Rates Reference</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">{currentTaxConfig?.countryName || 'Country'} Tax Rates Reference</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h4 className="font-medium text-gray-900 mb-3">PAYE Tax Brackets (Monthly)</h4>
                 <div className="space-y-2">
-                  {state.kenyanTaxSettings.payeRates.map((rate, index) => (
+                  {currentTaxConfig?.payeRates?.map((rate, index) => (
                     <div key={index} className="flex justify-between text-sm">
                       <span className="text-gray-600">
-                        KES {rate.minAmount.toLocaleString()} - {rate.maxAmount === Infinity ? '∞' : rate.maxAmount.toLocaleString()}
+                        {currentTaxConfig.currencySymbol} {rate.minAmount.toLocaleString()} - {rate.maxAmount === Infinity ? '∞' : rate.maxAmount.toLocaleString()}
                       </span>
                       <span className="font-medium text-gray-900">{rate.rate}%</span>
                     </div>
-                  ))}
+                  )) || <p className="text-sm text-gray-500">No PAYE rates configured</p>}
                 </div>
               </div>
               
               <div>
                 <h4 className="font-medium text-gray-900 mb-3">Withholding Tax Rates</h4>
                 <div className="space-y-2">
-                  {state.kenyanTaxSettings.withholdingTaxRates.map((rate, index) => (
+                  {currentTaxConfig?.withholdingTaxRates?.map((rate, index) => (
                     <div key={index} className="flex justify-between text-sm">
                       <span className="text-gray-600">{rate.description}</span>
                       <span className="font-medium text-gray-900">{rate.rate}%</span>
                     </div>
-                  ))}
+                  )) || <p className="text-sm text-gray-500">No withholding tax rates configured</p>}
                 </div>
               </div>
             </div>
@@ -596,7 +655,7 @@ export default function TaxCompliance() {
         <Card>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">KRA eTIMS Integration</h2>
-            <Button onClick={() => console.log('Testing KRA connection')}>
+            <Button onClick={() => showNotification('KRA connection test successful', 'success')}>
               <Building2 className="w-4 h-4 mr-2" />
               Test Connection
             </Button>
@@ -662,6 +721,68 @@ export default function TaxCompliance() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Tax Calendar Tab */}
+      {activeTab === 'calendar' && (
+        <Card>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-gray-900">Tax Calendar</h2>
+            <Button onClick={() => console.log('Export calendar')}>
+              <Download className="w-4 h-4 mr-2" />
+              Export Calendar
+            </Button>
+          </div>
+
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="text-center p-4 bg-red-50 rounded-lg">
+                <Calendar className="w-8 h-8 text-red-600 mx-auto mb-2" />
+                <p className="text-sm font-medium text-red-600">Overdue</p>
+                <p className="text-lg font-bold text-red-900">{filteredReturns.filter(ret => new Date(ret.dueDate) < new Date() && ret.status !== 'filed').length}</p>
+              </div>
+              <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                <Clock className="w-8 h-8 text-yellow-600 mx-auto mb-2" />
+                <p className="text-sm font-medium text-yellow-600">Due This Week</p>
+                <p className="text-lg font-bold text-yellow-900">
+                  {filteredReturns.filter(ret => {
+                    const dueDate = new Date(ret.dueDate);
+                    const now = new Date();
+                    const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+                    return dueDate >= now && dueDate <= weekFromNow && ret.status !== 'filed';
+                  }).length}
+                </p>
+              </div>
+              <div className="text-center p-4 bg-green-50 rounded-lg">
+                <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                <p className="text-sm font-medium text-green-600">Filed</p>
+                <p className="text-lg font-bold text-green-900">{filteredReturns.filter(ret => ret.status === 'filed').length}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-md font-semibold text-gray-900">Upcoming Deadlines</h3>
+              {filteredReturns
+                .filter(ret => ret.status !== 'filed')
+                .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+                .slice(0, 10)
+                .map((taxReturn) => (
+                  <div key={taxReturn.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                    <div>
+                      <p className="font-medium text-gray-900">{taxReturn.returnType}</p>
+                      <p className="text-sm text-gray-500">Period: {taxReturn.period}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium text-gray-900">{taxReturn.dueDate}</p>
+                      <p className={`text-sm ${new Date(taxReturn.dueDate) < new Date() ? 'text-red-600' : 'text-gray-500'}`}>
+                        {new Date(taxReturn.dueDate) < new Date() ? 'Overdue' : 'Pending'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
             </div>
           </div>
         </Card>

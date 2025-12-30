@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { Plus, Search, FileText, Clock, CheckCircle, AlertTriangle, Eye, Edit, Send, Download } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
 import PurchaseOrderForm from '../components/Forms/PurchaseOrderForm';
+import { useGlobalState } from '../contexts/GlobalStateContext';
+import { purchaseOrderService } from '../services/purchase-order.service';
 
 const mockPurchaseOrders = [
   {
@@ -94,13 +97,21 @@ const mockRequisitions = [
 ];
 
 export default function PurchaseOrders() {
+  const { showNotification, formatCurrency } = useGlobalState();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('purchase_orders');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [editingPO, setEditingPO] = useState<any>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [viewingPO, setViewingPO] = useState<any>(null);
+  const [showRequisitionViewModal, setShowRequisitionViewModal] = useState(false);
+  const [viewingRequisition, setViewingRequisition] = useState<any>(null);
+  const [purchaseOrders, setPurchaseOrders] = useState(mockPurchaseOrders);
+  const [requisitions, setRequisitions] = useState(mockRequisitions);
 
-  const filteredPOs = mockPurchaseOrders.filter(po => {
+  const filteredPOs = purchaseOrders.filter(po => {
     const matchesSearch = po.poNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          po.vendor.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || po.status === statusFilter;
@@ -136,23 +147,117 @@ export default function PurchaseOrders() {
     setShowModal(true);
   };
 
+  const handleAddRequisition = () => {
+    // For now, create a basic requisition
+    const newRequisition = {
+      id: requisitions.length + 1,
+      reqNumber: `REQ-${String(requisitions.length + 1).padStart(4, '0')}`,
+      requestedBy: 'Current User',
+      department: 'General',
+      requestDate: new Date().toISOString().split('T')[0],
+      requiredDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
+      status: 'draft',
+      priority: 'medium',
+      totalEstimate: 0,
+      items: [],
+      reason: 'New purchase request',
+      notes: ''
+    };
+    setRequisitions(prev => [...prev, newRequisition]);
+    showNotification(`Purchase requisition ${newRequisition.reqNumber} created successfully!`, 'success');
+  };
+
   const handleEditPO = (po: any) => {
     setEditingPO(po);
     setShowModal(true);
   };
 
-  const handleSubmitPO = (poData: any) => {
-    console.log('Submitting PO:', poData);
+  const handleSubmitPO = async (poData: any) => {
+    try {
+      if (editingPO) {
+        await purchaseOrderService.updateOrder(editingPO.id, poData);
+        setPurchaseOrders(prev => prev.map(po =>
+          po.id === editingPO.id
+            ? { ...po, ...poData }
+            : po
+        ));
+        showNotification('Purchase order updated successfully', 'success');
+      } else {
+        const newPO = await purchaseOrderService.createOrder({
+          tenant_id: '00000000-0000-0000-0000-000000000001', // Should come from context
+          vendor_id: poData.vendor_id,
+          order_date: poData.order_date,
+          delivery_date: poData.delivery_date,
+          status: poData.status,
+          approval_status: poData.approval_status || 'pending',
+          currency: poData.currency,
+          subtotal: poData.subtotal,
+          discount_amount: poData.discount_amount,
+          tax_amount: poData.tax_amount,
+          total: poData.total,
+          notes: poData.notes,
+          internal_notes: poData.internal_notes,
+          requested_by: poData.requested_by,
+          department: poData.department
+        });
+
+        setPurchaseOrders(prev => [...prev, {
+          ...newPO,
+          vendor: { name: 'Vendor Name' }, // This should be fetched
+          items: poData.lines || []
+        }]);
+        showNotification('Purchase order created successfully', 'success');
+      }
+    } catch (error) {
+      console.error('Error saving purchase order:', error);
+      showNotification('Failed to save purchase order. Please try again.', 'error');
+    }
     setShowModal(false);
     setEditingPO(null);
   };
 
-  const handleApprovePO = (poId: number) => {
-    console.log('Approving PO:', poId);
+  const handleApprovePO = async (poId: number) => {
+    try {
+      await purchaseOrderService.approveOrder(poId.toString(), 'Current User'); // Should come from auth context
+      setPurchaseOrders(prev => prev.map(po =>
+        po.id === poId
+          ? { ...po, status: 'approved', approval_status: 'approved', approvedBy: 'Current User' }
+          : po
+      ));
+      showNotification(`Purchase Order ${poId} has been approved successfully!`, 'success');
+    } catch (error) {
+      console.error('Error approving purchase order:', error);
+      showNotification('Failed to approve purchase order. Please try again.', 'error');
+    }
   };
 
-  const handleSendPO = (poId: number) => {
-    console.log('Sending PO:', poId);
+  const handleSendPO = async (poId: number) => {
+    try {
+      await purchaseOrderService.sendToVendor(poId.toString());
+      setPurchaseOrders(prev => prev.map(po =>
+        po.id === poId
+          ? { ...po, status: 'sent' }
+          : po
+      ));
+      showNotification(`Purchase Order ${poId} has been sent to the vendor!`, 'success');
+    } catch (error) {
+      console.error('Error sending purchase order to vendor:', error);
+      showNotification('Failed to send purchase order. Please try again.', 'error');
+    }
+  };
+
+  const handleViewDetails = (po: any) => {
+    setViewingPO(po);
+    setShowViewModal(true);
+  };
+
+  const handleViewRequisition = (req: any) => {
+    setViewingRequisition(req);
+    setShowRequisitionViewModal(true);
+  };
+
+  const handleEditRequisition = (req: any) => {
+    showNotification(`Editing requisition: ${req.reqNumber}`, 'info');
   };
 
   return (
@@ -167,6 +272,10 @@ export default function PurchaseOrders() {
           <Button variant="secondary">
             <FileText className="w-4 h-4 mr-2" />
             Purchase Reports
+          </Button>
+          <Button variant="secondary" onClick={handleAddRequisition}>
+            <Plus className="w-4 h-4 mr-2" />
+            Create Requisition
           </Button>
           <Button onClick={handleAddPO}>
             <Plus className="w-4 h-4 mr-2" />
@@ -192,7 +301,7 @@ export default function PurchaseOrders() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Value</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">${totalValue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(totalValue)}</p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
               <CheckCircle className="w-6 h-6 text-green-600" />
@@ -316,7 +425,7 @@ export default function PurchaseOrders() {
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Total Amount</p>
-                      <p className="font-semibold text-green-600">${po.total.toLocaleString()}</p>
+                      <p className="font-semibold text-green-600">{formatCurrency(po.total)}</p>
                     </div>
                   </div>
 
@@ -326,14 +435,14 @@ export default function PurchaseOrders() {
                       {po.items.map((item, index) => (
                         <div key={index} className="flex justify-between text-sm">
                           <span className="text-gray-600">{item.product} (x{item.quantity})</span>
-                          <span className="font-medium text-gray-900">${item.amount.toFixed(2)}</span>
+                          <span className="font-medium text-gray-900">{formatCurrency(item.amount)}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
                   <div className="flex space-x-2">
-                    <Button variant="secondary" size="sm" className="flex-1">
+                    <Button variant="secondary" size="sm" className="flex-1" onClick={() => handleViewDetails(po)}>
                       <Eye className="w-4 h-4 mr-2" />
                       View Details
                     </Button>
@@ -362,7 +471,7 @@ export default function PurchaseOrders() {
         <Card>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">Purchase Requisitions</h2>
-            <Button>
+            <Button onClick={() => showNotification('New requisition form would open here', 'info')}>
               <Plus className="w-4 h-4 mr-2" />
               New Requisition
             </Button>
@@ -396,7 +505,7 @@ export default function PurchaseOrders() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {mockRequisitions.map((req) => (
+                {requisitions.map((req) => (
                   <tr key={req.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <p className="font-medium text-gray-900">{req.reqNumber}</p>
@@ -411,7 +520,7 @@ export default function PurchaseOrders() {
                       <p className="text-sm text-gray-900">{req.requestDate}</p>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <p className="font-semibold text-gray-900">${req.totalEstimate.toLocaleString()}</p>
+                      <p className="font-semibold text-gray-900">{formatCurrency(req.totalEstimate)}</p>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(req.status)}`}>
@@ -420,10 +529,10 @@ export default function PurchaseOrders() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
-                        <button className="p-1 text-gray-500 hover:text-blue-600">
+                        <button className="p-1 text-gray-500 hover:text-blue-600" onClick={() => handleViewRequisition(req)}>
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button className="p-1 text-gray-500 hover:text-blue-600">
+                        <button className="p-1 text-gray-500 hover:text-blue-600" onClick={() => handleEditRequisition(req)}>
                           <Edit className="w-4 h-4" />
                         </button>
                       </div>
@@ -435,6 +544,176 @@ export default function PurchaseOrders() {
           </div>
         </Card>
       )}
+
+      {/* Purchase Order View Modal */}
+      <Modal
+        isOpen={showViewModal}
+        onClose={() => setShowViewModal(false)}
+        title="Purchase Order Details"
+      >
+        {viewingPO && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Information</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">PO Number</label>
+                    <p className="text-sm text-gray-900">{viewingPO.poNumber}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Vendor</label>
+                    <p className="text-sm text-gray-900">{viewingPO.vendor}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Order Date</label>
+                    <p className="text-sm text-gray-900">{viewingPO.orderDate}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Delivery Date</label>
+                    <p className="text-sm text-gray-900">{viewingPO.deliveryDate}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Status</label>
+                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(viewingPO.status)}`}>
+                      {viewingPO.status.replace('_', ' ').toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Priority</label>
+                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(viewingPO.priority)}`}>
+                      {viewingPO.priority.toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Requested By</label>
+                    <p className="text-sm text-gray-900">{viewingPO.requestedBy}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Department</label>
+                    <p className="text-sm text-gray-900">{viewingPO.department}</p>
+                  </div>
+                  {viewingPO.approvedBy && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Approved By</label>
+                      <p className="text-sm text-gray-900">{viewingPO.approvedBy}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Financial Summary</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Subtotal</label>
+                    <p className="text-lg font-semibold text-gray-900">{formatCurrency(viewingPO.subtotal)}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Tax Amount</label>
+                    <p className="text-sm text-gray-900">{formatCurrency(viewingPO.taxAmount)}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Total</label>
+                    <p className="text-xl font-bold text-green-600">{formatCurrency(viewingPO.total)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Items</h3>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="space-y-3">
+                  {viewingPO.items.map((item: any, index: number) => (
+                    <div key={index} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-b-0">
+                      <div>
+                        <p className="font-medium text-gray-900">{item.product}</p>
+                        <p className="text-sm text-gray-600">Quantity: {item.quantity} × {formatCurrency(item.unitPrice)}</p>
+                      </div>
+                      <p className="font-semibold text-gray-900">{formatCurrency(item.amount)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Purchase Requisition View Modal */}
+      <Modal
+        isOpen={showRequisitionViewModal}
+        onClose={() => setShowRequisitionViewModal(false)}
+        title="Purchase Requisition Details"
+      >
+        {viewingRequisition && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Requisition Information</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Requisition Number</label>
+                    <p className="text-sm text-gray-900">{viewingRequisition.reqNumber}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Requested By</label>
+                    <p className="text-sm text-gray-900">{viewingRequisition.requestedBy}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Department</label>
+                    <p className="text-sm text-gray-900">{viewingRequisition.department}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Request Date</label>
+                    <p className="text-sm text-gray-900">{viewingRequisition.requestDate}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Status</label>
+                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(viewingRequisition.status)}`}>
+                      {viewingRequisition.status.toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Priority</label>
+                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(viewingRequisition.priority)}`}>
+                      {viewingRequisition.priority.toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Financial Summary</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Estimated Total</label>
+                    <p className="text-xl font-bold text-green-600">{formatCurrency(viewingRequisition.totalEstimate)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Requested Items</h3>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="space-y-3">
+                  {viewingRequisition.items.map((item: any, index: number) => (
+                    <div key={index} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-b-0">
+                      <div>
+                        <p className="font-medium text-gray-900">{item.description}</p>
+                        <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
+                      </div>
+                      <p className="font-semibold text-gray-900">{formatCurrency(item.estimatedCost)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal
         isOpen={showModal}

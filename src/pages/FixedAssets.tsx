@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Plus, Search, Package, TrendingDown, Calendar, Wrench, Eye, Edit, Trash2, CheckCircle, AlertTriangle, Download, Settings } from 'lucide-react';
+import { Plus, Search, Package, TrendingDown, Calendar, Wrench, Eye, Edit, Trash2, CheckCircle, AlertTriangle, Download, Settings, Calculator } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
 import AssetForm from '../components/Forms/AssetForm';
 import MaintenanceForm from '../components/Forms/MaintenanceForm';
+import { useGlobalState } from '../contexts/GlobalStateContext';
 
 const mockAssets = [
   {
@@ -85,7 +87,7 @@ const mockAssets = [
   }
 ];
 
-const maintenanceRecords = [
+const initialMaintenanceRecords = [
   { id: 1, assetName: 'Dell Laptop - Engineering', date: '2024-12-01', type: 'Preventive', cost: 150.00, description: 'Software updates and cleaning', status: 'completed' },
   { id: 2, assetName: 'Office Printer - HP LaserJet', date: '2024-11-15', type: 'Repair', cost: 85.00, description: 'Replace toner cartridge', status: 'completed' },
   { id: 3, assetName: 'Company Vehicle - Toyota Camry', date: '2024-12-20', type: 'Preventive', cost: 320.00, description: 'Oil change and tire rotation', status: 'completed' },
@@ -93,13 +95,17 @@ const maintenanceRecords = [
 ];
 
 export default function FixedAssets() {
+  const { formatCurrency, t } = useGlobalState();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('assets');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [assets, setAssets] = useState(mockAssets);
-  const [maintenanceRecords, setMaintenanceRecords] = useState(maintenanceRecords);
+  const [maintenanceRecords, setMaintenanceRecords] = useState(initialMaintenanceRecords);
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+  const [showDepreciationReportModal, setShowDepreciationReportModal] = useState(false);
+  const [showViewMaintenanceModal, setShowViewMaintenanceModal] = useState(false);
   const [editingAsset, setEditingAsset] = useState<any>(null);
   const [editingMaintenance, setEditingMaintenance] = useState<any>(null);
 
@@ -203,17 +209,17 @@ export default function FixedAssets() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Fixed Assets</h1>
-          <p className="text-gray-600">Manage asset register, depreciation, and maintenance</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('fixedAssets')}</h1>
+          <p className="text-gray-600">{t('manageAssetRegister')}</p>
         </div>
         <div className="flex space-x-3">
-          <Button variant="secondary">
+          <Button variant="secondary" onClick={() => setShowDepreciationReportModal(true)}>
             <TrendingDown className="w-4 h-4 mr-2" />
-            Depreciation Report
+            {t('depreciationReport')}
           </Button>
           <Button onClick={handleAddAsset}>
             <Plus className="w-4 h-4 mr-2" />
-            Add Asset
+            {t('addAsset')}
           </Button>
         </div>
       </div>
@@ -223,7 +229,7 @@ export default function FixedAssets() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Assets</p>
+              <p className="text-sm font-medium text-gray-600">{t('totalAssets')}</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">{totalAssets}</p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
@@ -234,8 +240,8 @@ export default function FixedAssets() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Current Value</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">${totalValue.toLocaleString()}</p>
+              <p className="text-sm font-medium text-gray-600">{t('currentValue')}</p>
+              <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(totalValue)}</p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
               <TrendingDown className="w-6 h-6 text-green-600 transform rotate-180" />
@@ -245,8 +251,8 @@ export default function FixedAssets() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Depreciation</p>
-              <p className="text-2xl font-bold text-orange-600 mt-1">${totalDepreciation.toLocaleString()}</p>
+              <p className="text-sm font-medium text-gray-600">{t('totalDepreciation')}</p>
+              <p className="text-2xl font-bold text-orange-600 mt-1">{formatCurrency(totalDepreciation)}</p>
             </div>
             <div className="p-3 bg-orange-100 rounded-lg">
               <TrendingDown className="w-6 h-6 text-orange-600" />
@@ -256,7 +262,7 @@ export default function FixedAssets() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Maintenance Due</p>
+              <p className="text-sm font-medium text-gray-600">{t('maintenanceDue')}</p>
               <p className="text-2xl font-bold text-red-600 mt-1">{maintenanceDue}</p>
             </div>
             <div className="p-3 bg-red-100 rounded-lg">
@@ -277,7 +283,7 @@ export default function FixedAssets() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Asset Register
+            {t('assetRegister')}
           </button>
           <button
             onClick={() => setActiveTab('maintenance')}
@@ -287,7 +293,7 @@ export default function FixedAssets() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Maintenance
+            {t('maintenance')}
           </button>
           <button
             onClick={() => setActiveTab('depreciation')}
@@ -297,7 +303,7 @@ export default function FixedAssets() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Depreciation
+            {t('depreciation')}
           </button>
         </nav>
       </div>
@@ -312,7 +318,7 @@ export default function FixedAssets() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
-                  placeholder="Search assets..."
+                  placeholder={t('searchAssets')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -324,11 +330,11 @@ export default function FixedAssets() {
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="all">All Status</option>
-                  <option value="active">Active</option>
-                  <option value="disposed">Disposed</option>
-                  <option value="sold">Sold</option>
-                  <option value="retired">Retired</option>
+                  <option value="all">{t('allStatus')}</option>
+                  <option value="active">{t('active')}</option>
+                  <option value="disposed">{t('disposed')}</option>
+                  <option value="sold">{t('sold')}</option>
+                  <option value="retired">{t('retired')}</option>
                 </select>
               </div>
             </div>
@@ -341,25 +347,25 @@ export default function FixedAssets() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Asset
+                      {t('asset')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Category
+                      {t('category')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Location
+                      {t('location')}
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Purchase Price
+                      {t('purchasePrice')}
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Current Value
+                      {t('currentValue')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Condition
+                      {t('condition')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
+                      {t('actions')}
                     </th>
                   </tr>
                 </thead>
@@ -380,11 +386,11 @@ export default function FixedAssets() {
                         <p className="text-sm text-gray-900">{asset.location}</p>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <p className="text-sm text-gray-900">${asset.purchasePrice.toLocaleString()}</p>
+                        <p className="text-sm text-gray-900">{formatCurrency(asset.purchasePrice)}</p>
                         <p className="text-xs text-gray-500">{asset.purchaseDate}</p>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <p className="font-semibold text-green-600">${asset.currentValue.toLocaleString()}</p>
+                        <p className="font-semibold text-green-600">{formatCurrency(asset.currentValue)}</p>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getConditionColor(asset.condition)}`}>
@@ -435,10 +441,10 @@ export default function FixedAssets() {
       {activeTab === 'maintenance' && (
         <Card>
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">Maintenance Records</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('maintenanceRecords')}</h2>
             <Button onClick={handleAddMaintenance}>
               <Plus className="w-4 h-4 mr-2" />
-              Schedule Maintenance
+              {t('scheduleMaintenance')}
             </Button>
           </div>
 
@@ -447,7 +453,7 @@ export default function FixedAssets() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Asset
+                    {t('asset')}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Date
@@ -465,7 +471,7 @@ export default function FixedAssets() {
                     Status
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
+                    {t('actions')}
                   </th>
                 </tr>
               </thead>
@@ -499,7 +505,7 @@ export default function FixedAssets() {
                     <td className="px-4 py-4">
                       <div className="flex items-center space-x-2">
                         <button 
-                          onClick={() => console.log('Viewing maintenance record:', record.id)}
+                          onClick={() => { setEditingMaintenance(record); setShowViewMaintenanceModal(true); }}
                           className="p-1 text-gray-500 hover:text-blue-600"
                           title="View Record"
                         >
@@ -533,15 +539,15 @@ export default function FixedAssets() {
       {activeTab === 'depreciation' && (
         <Card>
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">Depreciation Schedules</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{t('depreciationSchedules')}</h2>
             <div className="flex space-x-3">
-              <Button variant="secondary" onClick={() => console.log('Calculating depreciation')}>
+              <Button variant="secondary" onClick={() => alert('Depreciation calculation completed')}>
                 <Calculator className="w-4 h-4 mr-2" />
-                Calculate Depreciation
+                {t('calculateDepreciation')}
               </Button>
-              <Button onClick={() => console.log('Generating depreciation report')}>
+              <Button onClick={() => navigate('/reports')}>
                 <Download className="w-4 h-4 mr-2" />
-                Generate Report
+                {t('generateReport')}
               </Button>
             </div>
           </div>
@@ -550,10 +556,10 @@ export default function FixedAssets() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Asset</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('asset')}</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Purchase Price</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Current Value</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{t('purchasePrice')}</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{t('currentValue')}</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Annual Depreciation</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining Life</th>
                 </tr>
@@ -576,13 +582,13 @@ export default function FixedAssets() {
                         <p className="text-sm text-gray-900 capitalize">{asset.depreciationMethod.replace('_', ' ')}</p>
                       </td>
                       <td className="px-4 py-4 text-right">
-                        <p className="text-sm text-gray-900">${asset.purchasePrice.toLocaleString()}</p>
+                        <p className="text-sm text-gray-900">{formatCurrency(asset.purchasePrice)}</p>
                       </td>
                       <td className="px-4 py-4 text-right">
-                        <p className="font-semibold text-green-600">${asset.currentValue.toLocaleString()}</p>
+                        <p className="font-semibold text-green-600">{formatCurrency(asset.currentValue)}</p>
                       </td>
                       <td className="px-4 py-4 text-right">
-                        <p className="text-sm text-orange-600">${annualDepreciation.toFixed(2)}</p>
+                        <p className="text-sm text-orange-600">{formatCurrency(annualDepreciation)}</p>
                       </td>
                       <td className="px-4 py-4 text-right">
                         <p className="text-sm text-gray-900">{remainingLife.toFixed(1)} years</p>
@@ -622,6 +628,70 @@ export default function FixedAssets() {
           onSubmit={handleSubmitMaintenance}
           onCancel={() => setShowMaintenanceModal(false)}
         />
+      </Modal>
+
+      <Modal
+        isOpen={showDepreciationReportModal}
+        onClose={() => setShowDepreciationReportModal(false)}
+        title={t('depreciationReport')}
+        size="xl"
+      >
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold">{t('depreciationSchedules')}</h3>
+            <Button onClick={() => alert('Depreciation report exported')}>
+              <Download className="w-4 h-4 mr-2" />
+              {t('export')}
+            </Button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('asset')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{t('purchasePrice')}</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{t('currentValue')}</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Annual Depreciation</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining Life</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredAssets.map((asset) => {
+                  const annualDepreciation = (asset.purchasePrice - asset.salvageValue) / asset.usefulLife;
+                  const totalDepreciation = asset.purchasePrice - asset.currentValue;
+                  const remainingLife = asset.usefulLife - (totalDepreciation / annualDepreciation);
+                  
+                  return (
+                    <tr key={asset.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-4">
+                        <div>
+                          <p className="font-medium text-gray-900">{asset.name}</p>
+                          <p className="text-sm text-gray-500">{asset.assetNumber}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="text-sm text-gray-900 capitalize">{asset.depreciationMethod.replace('_', ' ')}</p>
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <p className="text-sm text-gray-900">{formatCurrency(asset.purchasePrice)}</p>
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <p className="font-semibold text-green-600">{formatCurrency(asset.currentValue)}</p>
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <p className="text-sm text-orange-600">{formatCurrency(annualDepreciation)}</p>
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <p className="text-sm text-gray-900">{remainingLife.toFixed(1)} years</p>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </Modal>
     </div>
   );

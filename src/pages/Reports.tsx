@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Download, Calendar, TrendingUp, DollarSign, FileText, BarChart3, Eye, Building2, Calculator, Printer } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import { useGlobalState } from '../contexts/GlobalStateContext';
@@ -46,54 +47,23 @@ export default function Reports() {
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
   const [showCustomDate, setShowCustomDate] = useState(false);
-  const { generateReport, exportData, state } = useGlobalState();
+  const [selectedReport, setSelectedReport] = useState<any>(null);
+  const { generateReport, exportData, showNotification, state, formatCurrency } = useGlobalState();
+  const navigate = useNavigate();
 
-  const handleGenerateReport = (reportType: string) => {
+  const handleGenerateReport = async (reportType: string) => {
     const parameters = { 
       period: selectedPeriod,
       dateFrom: customDateFrom,
       dateTo: customDateTo
     };
     
-    const reportData = generateReport(reportType, parameters);
-    
-    switch (reportType) {
-      case 'profit_loss':
-        alert(`Profit & Loss Statement Generated:\n\nRevenue: KES ${reportData.revenue.toLocaleString()}\nExpenses: KES ${reportData.expenses.toLocaleString()}\nGross Profit: KES ${reportData.grossProfit.toLocaleString()}\nNet Income: KES ${reportData.netIncome.toLocaleString()}\n\nReport covers ${selectedPeriod} period.`);
-        break;
-        
-      case 'balance_sheet':
-        alert(`Balance Sheet Generated:\n\nTotal Assets: KES ${reportData.totalAssets.toLocaleString()}\nTotal Liabilities: KES ${reportData.totalLiabilities.toLocaleString()}\nTotal Equity: KES ${reportData.totalEquity.toLocaleString()}\n\nBalance Check: ${Math.abs(reportData.totalAssets - reportData.totalLiabilities - reportData.totalEquity) < 1 ? 'BALANCED' : 'OUT OF BALANCE'}`);
-        break;
-        
-      case 'cash_flow':
-        alert(`Cash Flow Statement Generated:\n\nOperating Cash Flow: KES ${reportData.inflows.toLocaleString()}\nInvesting Cash Flow: KES ${reportData.outflows.toLocaleString()}\nNet Cash Flow: KES ${reportData.netCashFlow.toLocaleString()}\n\nPeriod: ${selectedPeriod}`);
-        break;
-        
-      case 'ar_aging':
-        const totalAR = reportData.reduce((sum: number, item: any) => sum + item.total, 0);
-        alert(`AR Aging Report Generated:\n\nTotal Outstanding: KES ${totalAR.toLocaleString()}\nCustomers with Outstanding: ${reportData.length}\nCurrent: KES ${reportData.reduce((sum: number, item: any) => sum + item.current, 0).toLocaleString()}\n30+ Days: KES ${reportData.reduce((sum: number, item: any) => sum + item.days30, 0).toLocaleString()}`);
-        break;
-        
-      case 'trial_balance':
-        const totalDebits = reportData.reduce((sum: number, acc: any) => sum + acc.debit, 0);
-        const totalCredits = reportData.reduce((sum: number, acc: any) => sum + acc.credit, 0);
-        alert(`Trial Balance Generated:\n\nTotal Accounts: ${reportData.length}\nTotal Debits: KES ${totalDebits.toLocaleString()}\nTotal Credits: KES ${totalCredits.toLocaleString()}\nStatus: ${Math.abs(totalDebits - totalCredits) < 1 ? 'BALANCED' : 'OUT OF BALANCE'}`);
-        break;
-        
-      case 'vat_return':
-        const vatData = {
-          totalSales: state.accounts.find(a => a.code === '4000')?.balance || 0,
-          vatOnSales: Math.abs(state.accounts.find(a => a.code === '4000')?.balance || 0) * 0.16,
-          totalPurchases: state.accounts.find(a => a.code === '5000')?.balance || 0,
-          vatOnPurchases: (state.accounts.find(a => a.code === '5000')?.balance || 0) * 0.16,
-        };
-        vatData.netVat = vatData.vatOnSales - vatData.vatOnPurchases;
-        alert(`VAT Return Report:\n\nTotal Sales: KES ${Math.abs(vatData.totalSales).toLocaleString()}\nVAT on Sales: KES ${vatData.vatOnSales.toLocaleString()}\nTotal Purchases: KES ${vatData.totalPurchases.toLocaleString()}\nVAT on Purchases: KES ${vatData.vatOnPurchases.toLocaleString()}\nNet VAT Payable: KES ${vatData.netVat.toLocaleString()}`);
-        break;
-        
-      default:
-        alert(`${reportType.replace('_', ' ').toUpperCase()} report generated successfully!`);
+    try {
+      const reportData = await generateReport(reportType, parameters);
+      setSelectedReport({ type: reportType, data: reportData, parameters });
+    } catch (error) {
+      console.error('Error generating report:', error);
+      showNotification(`Error generating ${reportType.replace('_', ' ')} report. Please try again.`, 'error');
     }
   };
 
@@ -103,32 +73,29 @@ export default function Reports() {
 
   const handleViewReport = (reportType: string) => {
     const reportData = generateReport(reportType, { period: selectedPeriod });
-    console.log(`Viewing ${reportType} report:`, reportData);
+    showNotification(`Viewing ${reportType} report`, 'info');
     
     // Show detailed report view
     if (reportType === 'trial_balance') {
       const details = reportData.map((acc: any) => 
         `${acc.code} - ${acc.name}: Dr ${acc.debit.toLocaleString()} Cr ${acc.credit.toLocaleString()}`
-      ).join('\n');
-      alert(`Trial Balance Details:\n\n${details}`);
+      ).join(', ');
+      showNotification(`Trial Balance Details: ${details}`, 'info');
     } else {
       handleGenerateReport(reportType);
     }
   };
 
   const handlePrintReport = (reportType: string) => {
-    console.log(`Printing ${reportType} report`);
-    alert(`${reportType.replace('_', ' ').toUpperCase()} report sent to printer. In a real system, this would open the print dialog.`);
+    showNotification(`${reportType.replace('_', ' ').toUpperCase()} report sent to printer. In a real system, this would open the print dialog.`, 'info');
   };
 
   const handleEmailReport = (reportType: string) => {
-    console.log(`Emailing ${reportType} report`);
-    alert(`${reportType.replace('_', ' ').toUpperCase()} report will be emailed. In a real system, this would open an email composition dialog.`);
+    showNotification(`${reportType.replace('_', ' ').toUpperCase()} report will be emailed. In a real system, this would open an email composition dialog.`, 'info');
   };
 
   const handleScheduleReport = (reportType: string) => {
-    console.log(`Scheduling ${reportType} report`);
-    alert(`Report scheduling for ${reportType.replace('_', ' ').toUpperCase()} will be configured. This would open a scheduling dialog in a real system.`);
+    showNotification(`Report scheduling for ${reportType.replace('_', ' ').toUpperCase()} will be configured. This would open a scheduling dialog in a real system.`, 'info');
   };
 
   // Calculate financial summary from real data
@@ -193,7 +160,7 @@ export default function Reports() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-              <p className="text-2xl font-bold text-green-600">KES {financialSummary.totalRevenue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-green-600">{formatCurrency(financialSummary.totalRevenue)}</p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
               <TrendingUp className="w-6 h-6 text-green-600" />
@@ -205,7 +172,7 @@ export default function Reports() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Expenses</p>
-              <p className="text-2xl font-bold text-red-600">KES {financialSummary.totalExpenses.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-red-600">{formatCurrency(financialSummary.totalExpenses)}</p>
             </div>
             <div className="p-3 bg-red-100 rounded-lg">
               <TrendingUp className="w-6 h-6 text-red-600 transform rotate-180" />
@@ -218,7 +185,7 @@ export default function Reports() {
             <div>
               <p className="text-sm font-medium text-gray-600">Net Income</p>
               <p className={`text-2xl font-bold mt-1 ${financialSummary.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                KES {Math.abs(financialSummary.netIncome).toLocaleString()}
+                {formatCurrency(Math.abs(financialSummary.netIncome))}
               </p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
@@ -277,6 +244,27 @@ export default function Reports() {
         ))}
       </div>
 
+      {/* Selected Report Display */}
+      {selectedReport && (
+        <Card>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {selectedReport.type.replace('_', ' ').toUpperCase()} Report
+            </h2>
+            <div className="flex space-x-2">
+              <Button variant="secondary" size="sm" onClick={() => handleDownloadReport(selectedReport.type, 'pdf')}>
+                <Download className="w-4 h-4 mr-2" />
+                Export PDF
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setSelectedReport(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+          <ReportDisplay report={selectedReport} />
+        </Card>
+      )}
+
       {/* Quick Financial Overview */}
       <Card>
         <div className="flex items-center justify-between mb-6">
@@ -299,15 +287,15 @@ export default function Reports() {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-gray-600">Total Assets</span>
-                <span className="font-medium">KES {financialSummary.totalAssets.toLocaleString()}</span>
+                <span className="font-medium">{formatCurrency(financialSummary.totalAssets)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Total Liabilities</span>
-                <span className="font-medium">KES {financialSummary.totalLiabilities.toLocaleString()}</span>
+                <span className="font-medium">{formatCurrency(financialSummary.totalLiabilities)}</span>
               </div>
               <div className="flex justify-between pt-2 border-t">
                 <span className="font-medium text-gray-900">Owner's Equity</span>
-                <span className="font-bold text-green-600">KES {financialSummary.totalEquity.toLocaleString()}</span>
+                <span className="font-bold text-green-600">{formatCurrency(financialSummary.totalEquity)}</span>
               </div>
             </div>
           </div>
@@ -317,11 +305,11 @@ export default function Reports() {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-gray-600">Gross Revenue</span>
-                <span className="font-medium">KES {financialSummary.totalRevenue.toLocaleString()}</span>
+                <span className="font-medium">{formatCurrency(financialSummary.totalRevenue)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Total Expenses</span>
-                <span className="font-medium">KES {financialSummary.totalExpenses.toLocaleString()}</span>
+                <span className="font-medium">{formatCurrency(financialSummary.totalExpenses)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Gross Margin</span>
@@ -346,7 +334,7 @@ export default function Reports() {
       <Card>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Kenyan Tax Summary</h2>
-          <Button variant="secondary" onClick={() => console.log('Opening KRA dashboard')}>
+          <Button variant="secondary" onClick={() => navigate('/tax-compliance')}>
             <Building2 className="w-4 h-4 mr-2" />
             KRA Dashboard
           </Button>
@@ -356,7 +344,7 @@ export default function Reports() {
           <div className="text-center p-4 bg-blue-50 rounded-lg">
             <p className="text-sm font-medium text-blue-600">VAT Collected</p>
             <p className="text-2xl font-bold text-blue-900">
-              KES {(Math.abs(state.accounts.find(a => a.code === '2100')?.balance || 0)).toLocaleString()}
+              {formatCurrency(Math.abs(state.accounts.find(a => a.code === '2100')?.balance || 0))}
             </p>
             <Button size="sm" className="mt-2" onClick={() => handleGenerateReport('vat_return')}>
               View VAT Return
@@ -365,7 +353,7 @@ export default function Reports() {
           <div className="text-center p-4 bg-green-50 rounded-lg">
             <p className="text-sm font-medium text-green-600">PAYE Deducted</p>
             <p className="text-2xl font-bold text-green-900">
-              KES {(Math.abs(state.accounts.find(a => a.code === '2110')?.balance || 0)).toLocaleString()}
+              {formatCurrency(Math.abs(state.accounts.find(a => a.code === '2110')?.balance || 0))}
             </p>
             <Button size="sm" className="mt-2" onClick={() => handleGenerateReport('paye_report')}>
               View PAYE Report
@@ -374,7 +362,7 @@ export default function Reports() {
           <div className="text-center p-4 bg-purple-50 rounded-lg">
             <p className="text-sm font-medium text-purple-600">WHT Deducted</p>
             <p className="text-2xl font-bold text-purple-900">
-              KES {(Math.abs(state.accounts.find(a => a.code === '2140')?.balance || 0)).toLocaleString()}
+              {formatCurrency(Math.abs(state.accounts.find(a => a.code === '2140')?.balance || 0))}
             </p>
             <Button size="sm" className="mt-2" onClick={() => handleGenerateReport('wht_report')}>
               View WHT Report
@@ -383,9 +371,9 @@ export default function Reports() {
           <div className="text-center p-4 bg-orange-50 rounded-lg">
             <p className="text-sm font-medium text-orange-600">Statutory Deductions</p>
             <p className="text-2xl font-bold text-orange-900">
-              KES {(Math.abs(state.accounts.find(a => a.code === '2120')?.balance || 0) + Math.abs(state.accounts.find(a => a.code === '2130')?.balance || 0)).toLocaleString()}
+              {formatCurrency(Math.abs(state.accounts.find(a => a.code === '2120')?.balance || 0) + Math.abs(state.accounts.find(a => a.code === '2130')?.balance || 0))}
             </p>
-            <Button size="sm" className="mt-2" onClick={() => console.log('Statutory deductions report')}>
+            <Button size="sm" className="mt-2" onClick={() => handleViewReport('statutory_deductions')}>
               View Details
             </Button>
           </div>
@@ -419,4 +407,260 @@ export default function Reports() {
       </Card>
     </div>
   );
+}
+
+function ReportDisplay({ report }: { report: any }) {
+  const { type, data } = report;
+
+  switch (type) {
+    case 'profit_loss':
+      return (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-4">Revenue</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Total Revenue</span>
+                  <span className="font-medium">{formatCurrency(data.revenue.total)}</span>
+                </div>
+                {data.revenue.breakdown.map((item: any, index: number) => (
+                  <div key={index} className="flex justify-between pl-4 text-sm">
+                    <span className="text-gray-500">{item.account}</span>
+                    <span>{formatCurrency(item.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-4">Expenses</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Cost of Sales</span>
+                  <span className="font-medium">{formatCurrency(data.costOfSales.total)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Operating Expenses</span>
+                  <span className="font-medium">{formatCurrency(data.operatingExpenses.total)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="border-t pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Gross Profit</p>
+                <p className="text-xl font-bold text-green-600">{formatCurrency(data.grossProfit)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Operating Income</p>
+                <p className="text-xl font-bold text-blue-600">{formatCurrency(data.operatingIncome)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Net Income</p>
+                <p className={`text-xl font-bold ${data.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatCurrency(data.netIncome)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+
+    case 'balance_sheet':
+      return (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-4">Assets</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between font-medium">
+                  <span>Current Assets</span>
+                  <span>{formatCurrency(data.assets.currentAssets.total)}</span>
+                </div>
+                <div className="flex justify-between font-medium">
+                  <span>Fixed Assets</span>
+                  <span>{formatCurrency(data.assets.fixedAssets.total)}</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t font-bold">
+                  <span>Total Assets</span>
+                  <span>{formatCurrency(data.assets.total)}</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-4">Liabilities</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between font-medium">
+                  <span>Current Liabilities</span>
+                  <span>{formatCurrency(data.liabilities.currentLiabilities.total)}</span>
+                </div>
+                <div className="flex justify-between font-medium">
+                  <span>Long-term Liabilities</span>
+                  <span>{formatCurrency(data.liabilities.longTermLiabilities.total)}</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t font-bold">
+                  <span>Total Liabilities</span>
+                  <span>{formatCurrency(data.liabilities.total)}</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-4">Equity</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between pt-2 border-t font-bold">
+                  <span>Total Equity</span>
+                  <span>{formatCurrency(data.equity.total)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+
+    case 'cash_flow':
+      return (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-4">Operating Activities</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Net Income</span>
+                  <span className="font-medium">{formatCurrency(data.operatingActivities.netIncome)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Change in AR</span>
+                  <span className="font-medium">{formatCurrency(data.operatingActivities.changeInAR)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Change in Inventory</span>
+                  <span className="font-medium">{formatCurrency(data.operatingActivities.changeInInventory)}</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t font-bold">
+                  <span>Net Cash from Operations</span>
+                  <span>{formatCurrency(data.operatingActivities.total)}</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-4">Investing & Financing</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Investing Activities</span>
+                  <span className="font-medium">{formatCurrency(data.investingActivities.total)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Financing Activities</span>
+                  <span className="font-medium">{formatCurrency(data.financingActivities.total)}</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t font-bold text-green-600">
+                  <span>Net Cash Flow</span>
+                  <span>{formatCurrency(data.netCashFlow)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+
+    case 'ar_aging':
+      return (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Total AR</p>
+              <p className="text-xl font-bold text-blue-600">{formatCurrency(data.totals.totalBalance)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Current</p>
+              <p className="text-xl font-bold text-green-600">{formatCurrency(data.totals.current)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600">1-30 Days</p>
+              <p className="text-xl font-bold text-yellow-600">{formatCurrency(data.totals.days1_30)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600">31-90 Days</p>
+              <p className="text-xl font-bold text-orange-600">{formatCurrency(data.totals.days31_60 + data.totals.days61_90)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Over 90 Days</p>
+              <p className="text-xl font-bold text-red-600">{formatCurrency(data.totals.over90)}</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Current</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">1-30</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">31-60</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">61-90</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">90+</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {data.customers.map((customer: any, index: number) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{customer.customerName}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">{formatCurrency(customer.totalBalance)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right">{formatCurrency(customer.current)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right">{formatCurrency(customer.days1_30)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right">{formatCurrency(customer.days31_60)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right">{formatCurrency(customer.days61_90)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right">{formatCurrency(customer.over90)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+
+    case 'trial_balance':
+      return (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Code</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Name</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Debit</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Credit</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {data.accounts.map((account: any, index: number) => (
+                <tr key={index}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{account.code}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{account.name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right">{account.debit ? formatCurrency(account.debit) : '-'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right">{account.credit ? formatCurrency(account.credit) : '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-gray-50">
+              <tr>
+                <td colSpan={2} className="px-6 py-4 text-sm font-medium text-gray-900">Totals</td>
+                <td className="px-6 py-4 text-sm font-bold text-right">{formatCurrency(data.totals.debit)}</td>
+                <td className="px-6 py-4 text-sm font-bold text-right">{formatCurrency(data.totals.credit)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      );
+
+    default:
+      return (
+        <div className="text-center py-8">
+          <p className="text-gray-500">Report display not implemented for this type.</p>
+          <pre className="mt-4 text-left bg-gray-100 p-4 rounded text-sm overflow-auto">
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        </div>
+      );
+  }
 }

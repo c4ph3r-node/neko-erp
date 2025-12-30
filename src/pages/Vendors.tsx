@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Plus, Search, Mail, Phone, MapPin, CreditCard as Edit, Trash2, Building } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
 // import VendorForm from '../components/Forms/VendorForm';
+import { useGlobalState } from '../contexts/GlobalStateContext';
 
 const mockVendors = [
   {
@@ -53,6 +55,8 @@ const mockVendors = [
 ];
 
 export default function Vendors() {
+  const { showNotification, formatCurrency, t } = useGlobalState();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [vendors] = useState(mockVendors);
   const [showModal, setShowModal] = useState(false);
@@ -74,29 +78,38 @@ export default function Vendors() {
   };
 
   const handleSubmitVendor = (vendorData: any) => {
-    console.log('Submitting vendor:', vendorData);
+    showNotification('Vendor saved successfully', 'success');
     // Here you would typically make an API call to save the vendor
     setShowModal(false);
     setEditingVendor(null);
   };
 
   const handleDeleteVendor = (vendorId: number) => {
-    if (confirm('Are you sure you want to delete this vendor?')) {
-      console.log('Deleting vendor:', vendorId);
+    if (confirm(t('areYouSureYouWantToDeleteThisVendor'))) {
+      showNotification('Vendor deleted successfully', 'success');
       // Here you would typically make an API call to delete the vendor
     }
   };
+
+  const handleViewVendorDetails = (vendorId: number) => {
+    showNotification('Vendor details view would open here', 'info');
+  };
+
+  const handleCreateBill = (vendorId: number) => {
+    showNotification('Bill creation form would open here', 'info');
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Vendors</h1>
-          <p className="text-gray-600">Manage your vendor relationships and payables</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('vendors')}</h1>
+          <p className="text-gray-600">{t('manageVendorRelationshipsAndAccounts')}</p>
         </div>
         <Button onClick={handleAddVendor}>
           <Plus className="w-4 h-4 mr-2" />
-          Add Vendor
+          {t('addVendor')}
         </Button>
       </div>
 
@@ -112,7 +125,7 @@ export default function Vendors() {
           <div className="text-center">
             <p className="text-sm font-medium text-gray-600">Outstanding Payables</p>
             <p className="text-2xl font-bold text-red-600 mt-1">
-              ${Math.abs(filteredVendors.reduce((sum, v) => sum + v.balance, 0)).toFixed(2)}
+              ${formatCurrency(Math.abs(filteredVendors.reduce((sum, v) => sum + v.balance, 0)))}
             </p>
           </div>
         </Card>
@@ -133,7 +146,7 @@ export default function Vendors() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
               type="text"
-              placeholder="Search vendors..."
+              placeholder={t('searchVendors')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -141,9 +154,9 @@ export default function Vendors() {
           </div>
           <div className="flex items-center space-x-4">
             <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-              <option>All Status</option>
-              <option>Active</option>
-              <option>Inactive</option>
+              <option>{t('allStatus')}</option>
+              <option>{t('active')}</option>
+              <option>{t('inactive')}</option>
             </select>
           </div>
         </div>
@@ -193,26 +206,26 @@ export default function Vendors() {
               <div className="border-t pt-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">Outstanding Balance</p>
+                    <p className="text-sm text-gray-600">{t('outstandingBalance')}</p>
                     <p className={`text-lg font-semibold ${
                       vendor.balance < 0 ? 'text-red-600' : 'text-gray-900'
                     }`}>
-                      ${Math.abs(vendor.balance).toFixed(2)}
+                      {formatCurrency(Math.abs(vendor.balance))}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-gray-600">Payment Terms</p>
+                    <p className="text-sm text-gray-600">{t('paymentTerms')}</p>
                     <p className="text-sm font-medium text-gray-900">{vendor.paymentTerms} days</p>
                   </div>
                 </div>
               </div>
 
               <div className="flex space-x-2">
-                <Button variant="secondary" size="sm" className="flex-1">
-                  View Details
+                <Button variant="secondary" size="sm" className="flex-1" onClick={() => handleViewVendorDetails(vendor.id)}>
+                  {t('viewDetails')}
                 </Button>
-                <Button size="sm" className="flex-1">
-                  Create Bill
+                <Button size="sm" className="flex-1" onClick={() => handleCreateBill(vendor.id)}>
+                  {t('createPurchaseOrder')}
                 </Button>
               </div>
             </div>
@@ -226,13 +239,13 @@ export default function Vendors() {
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Building className="w-8 h-8 text-gray-400" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No vendors found</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('noVendorsFound')}</h3>
             <p className="text-gray-600 mb-4">
-              {searchTerm ? 'Try adjusting your search terms' : 'Get started by adding your first vendor'}
+              {searchTerm ? t('tryAdjustingYourSearchTerms') : t('getStartedByAddingYourFirstVendor')}
             </p>
             <Button onClick={handleAddVendor}>
               <Plus className="w-4 h-4 mr-2" />
-              Add Vendor
+              {t('addVendor')}
             </Button>
           </div>
         </Card>
@@ -241,7 +254,7 @@ export default function Vendors() {
       <Modal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        title={editingVendor ? 'Edit Vendor' : 'Add New Vendor'}
+        title={editingVendor ? t('editVendor') : t('addNewVendor')}
         size="lg"
       >
         {/* <VendorForm

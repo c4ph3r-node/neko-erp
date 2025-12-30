@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, Search, FileText, Send, Copy, Eye, Edit, Trash2, CheckCircle, Clock, DollarSign } from 'lucide-react';
+import { Plus, Search, FileText, Send, Copy, Eye, Edit, Trash2, CheckCircle, Clock, DollarSign, Download } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
@@ -84,7 +85,11 @@ const mockEstimates = [
   }
 ];
 
+import { useGlobalState } from '../contexts/GlobalStateContext';
+
 export default function Estimates() {
+  const { formatCurrency, showNotification } = useGlobalState();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [estimates, setEstimates] = useState(mockEstimates);
@@ -194,7 +199,7 @@ export default function Estimates() {
           <p className="text-gray-600">Create and manage customer estimates and quotations</p>
         </div>
         <div className="flex space-x-3">
-          <Button variant="secondary" onClick={() => console.log('Opening estimate templates')}>
+          <Button variant="secondary" onClick={() => showNotification('Estimate templates would open here', 'info')}>
             <FileText className="w-4 h-4 mr-2" />
             Templates
           </Button>
@@ -211,7 +216,7 @@ export default function Estimates() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Estimate Value</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">${totalEstimateValue.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(totalEstimateValue)}</p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
               <DollarSign className="w-6 h-6 text-blue-600" />
@@ -298,7 +303,7 @@ export default function Estimates() {
                   </span>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-bold text-green-600">${estimate.total.toFixed(2)}</p>
+                  <p className="text-lg font-bold text-green-600">{formatCurrency(estimate.total)}</p>
                   <p className="text-sm text-gray-500">Total Amount</p>
                 </div>
               </div>
@@ -323,7 +328,7 @@ export default function Estimates() {
                   {estimate.items.map((item, index) => (
                     <div key={index} className="flex justify-between text-sm">
                       <span className="text-gray-600">{item.description} (x{item.quantity})</span>
-                      <span className="font-medium text-gray-900">${item.amount.toFixed(2)}</span>
+                      <span className="font-medium text-gray-900">{formatCurrency(item.amount)}</span>
                     </div>
                   ))}
                 </div>
