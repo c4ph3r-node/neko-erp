@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowRight, CheckCircle, Star, Users, Building2, Shield, Globe, Zap, BarChart3, CreditCard, Play, Menu, X } from 'lucide-react';
+import { ArrowRight, CheckCircle, Star, Users, Building2, Shield, Globe, Zap, BarChart3, CreditCard, Play, Menu, X, LogIn } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import Button from '../components/UI/Button';
 import Modal from '../components/UI/Modal';
 import SignupForm from '../components/Forms/SignupForm';
@@ -117,6 +118,7 @@ const pricingPlans = [
 export default function LandingPage() {
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [showDemoModal, setShowDemoModal] = useState(false);
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleStartTrial = () => {
@@ -186,6 +188,10 @@ export default function LandingPage() {
               <a href="#pricing" className="text-gray-600 hover:text-gray-900 font-medium">Pricing</a>
               <a href="#testimonials" className="text-gray-600 hover:text-gray-900 font-medium">Testimonials</a>
               <a href="#contact" className="text-gray-600 hover:text-gray-900 font-medium">Contact</a>
+              <Button variant="outline" onClick={() => navigate('/login')} className="flex items-center gap-2">
+                <LogIn className="w-4 h-4" />
+                Login
+              </Button>
               <Button variant="secondary" onClick={handleRequestDemo}>
                 Request Demo
               </Button>
@@ -214,6 +220,10 @@ export default function LandingPage() {
                 <a href="#testimonials" className="block text-gray-600 hover:text-gray-900 font-medium">Testimonials</a>
                 <a href="#contact" className="block text-gray-600 hover:text-gray-900 font-medium">Contact</a>
                 <div className="space-y-2">
+                  <Button variant="outline" onClick={() => navigate('/login')} className="w-full flex items-center gap-2">
+                    <LogIn className="w-4 h-4" />
+                    Login
+                  </Button>
                   <Button variant="secondary" onClick={handleRequestDemo} className="w-full">
                     Request Demo
                   </Button>
