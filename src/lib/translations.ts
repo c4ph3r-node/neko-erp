@@ -130,7 +130,7 @@ const translations = {
     sold: 'Sold',
     retired: 'Retired',
     welcome: 'Welcome back',
-    businessOverview: 'Here\'s your business overview',
+    businessOverview: 'Take a look at your business overview',
     totalRevenue: 'Total Revenue',
     outstandingInvoices: 'Outstanding Invoices',
     activeCustomers: 'Active Customers',
