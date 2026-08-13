@@ -91,7 +91,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{t('dashboard')}</h1>
-          <p className="text-gray-600">{t('welcome')} {tenant?.name}! {t('businessOverview')}.</p>
+          <p className="text-gray-600">{t(' Hello and welcome')} {tenant?.name}! {t('businessOverview')}.</p>
         </div>
         <div className="text-right">
           <div className="text-sm text-gray-500">
